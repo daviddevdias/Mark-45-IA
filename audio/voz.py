@@ -201,13 +201,8 @@ def interromper_voz():
 
 
 def barge_loop():
-    """Escuta interrupções durante a fala usando um único stream PyAudio aberto.
 
-    A criação/destruição repetida de sr.Microphone dentro de um loop causava
-    corrupção de heap no Windows (0xc0000374) porque o PyAudio chama
-    Pa_Terminate() no __exit__ enquanto outro stream ainda pode estar ativo.
-    Aqui abrimos o stream UMA vez e só saímos do 'with' ao terminar o loop.
-    """
+
     idx = normalizar_indice_microfone(getattr(config, "DEVICE_INDEX", None))
     rec = criar_reconhecedor()
     rec.pause_threshold = 0.4
@@ -217,14 +212,13 @@ def barge_loop():
     if idx is not None:
         kwargs["device_index"] = idx
 
-    # Aguarda o mic_lock sem tentar abrir enquanto captura_sync estiver ativo.
-    # Se não conseguir o lock em 2 s, desiste (a fala provavelmente já acabou).
+
     if not mic_lock.acquire(timeout=2.0):
         return
 
     try:
         with sr.Microphone(**kwargs) as source:
-            mic_lock.release()          # libera imediatamente após abrir o stream
+            mic_lock.release()         
             try:
                 rec.adjust_for_ambient_noise(source, duration=0.15)
             except Exception:
@@ -362,9 +356,10 @@ def captura_sync():
     with audio_io_lock:
         suspender_pygame_mixer_para_capture()
 
+
     parar_listener_interrupcao()
     if barge_thread and barge_thread.is_alive():
-        barge_thread.join(timeout=3.0)     
+        barge_thread.join(timeout=4.0)
 
     time.sleep(0.15)
 
@@ -449,11 +444,19 @@ def ouvir_sync_queued():
 
 
 def listar_microfones() -> list:
+    """Lista microfones disponíveis de forma segura, respeitando o mic_lock
+    para evitar acesso concorrente ao PyAudio (causa access violation no Windows)."""
+    acquired = mic_lock.acquire(timeout=5.0)
+    if not acquired:
+
+        return []
     try:
         mics = sr.Microphone.list_microphone_names()
         return [f"{i}: {nome}" for i, nome in enumerate(mics)]
     except Exception:
         return []
+    finally:
+        mic_lock.release()
 
 
 

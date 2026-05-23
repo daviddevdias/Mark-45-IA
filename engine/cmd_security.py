@@ -117,7 +117,7 @@ REGRAS: list[Regra] = [
 BLOQUEIOS_COMPILADOS = [re.compile(p, re.IGNORECASE) for p in BLOQUEIOS]
 INJECOES = [";", "&&", "||", "`", "$(", ">{", "<(", "2>&1 |"]
 
-def sanitizar(cmd: str) -> str:
+def sanitizar(cmd: str):
     return re.sub(r"\s+", " ", cmd.strip())
 
 def tem_injecao(cmd: str) -> bool:
@@ -163,7 +163,7 @@ def executar(
     confirmar_fn: Optional[Callable] = None,
     origem: str = "cmd",
     ferramenta: str = "",
-) -> str:
+):
     av = avaliar(comando)
 
     if not av.permitido:

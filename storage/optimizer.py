@@ -29,7 +29,7 @@ def conectar_banco_auditoria() -> sqlite3.Connection:
     conexao.commit()
     return conexao
 
-async def comprimir_banco_auditoria() -> str:
+async def comprimir_banco_auditoria():
     conexao = conectar_banco_auditoria()
     try:
         cursor = conexao.cursor()

@@ -1,3 +1,8 @@
+"""
+app_ul/theme.py
+Paletas de cores e utilitários de estilo para a HUD JarvisUI.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -5,227 +10,234 @@ from dataclasses import dataclass
 from PyQt6.QtGui import QColor
 
 
-TEMAS_CORE = {
-    "OBSIDIAN_GOLD": {
-        "bg": "#05050a",
-        "bg_grad": "radial-gradient(900px 520px at 18% 12%, rgba(255,180,0,.14) 0%, rgba(0,0,0,0) 55%), radial-gradient(880px 520px at 84% 18%, rgba(255,90,0,.10) 0%, rgba(0,0,0,0) 60%), linear-gradient(180deg, #05050a 0%, #010103 100%)",
-        "card": "#0a0a12",
-        "surface": "#07070e",
-        "border": "#231a10",
-        "accent": "#ffb400",
-        "secondary": "#ff6a00",
-        "terciaria": "#4a240a",
-        "danger": "#ff3344",
-        "text_pri": "#fff1da",
-        "text_sec": "#b99672",
-    },
-    "NOIR_CYAN": {
-        "bg": "#03060a",
-        "bg_grad": "radial-gradient(900px 520px at 20% 12%, rgba(0,212,255,.13) 0%, rgba(0,0,0,0) 58%), radial-gradient(900px 520px at 86% 16%, rgba(153,68,255,.10) 0%, rgba(0,0,0,0) 62%), linear-gradient(180deg, #03060a 0%, #010205 100%)",
-        "card": "#07101a",
-        "surface": "#050b12",
-        "border": "#0f2338",
-        "accent": "#00d4ff",
-        "secondary": "#9944ff",
-        "terciaria": "#1a2c44",
-        "danger": "#ff4455",
-        "text_pri": "#eaf6ff",
-        "text_sec": "#8ab0c8",
-    },
-    "VOID_PURPLE": {
-        "bg": "#05020a",
-        "bg_grad": "radial-gradient(920px 540px at 18% 14%, rgba(170,68,255,.14) 0%, rgba(0,0,0,0) 58%), radial-gradient(900px 520px at 86% 20%, rgba(255,0,170,.09) 0%, rgba(0,0,0,0) 62%), linear-gradient(180deg, #05020a 0%, #010103 100%)",
-        "card": "#0a0512",
-        "surface": "#07040e",
-        "border": "#1a0d33",
-        "accent": "#aa44ff",
-        "secondary": "#ff00aa",
-        "terciaria": "#2d0f55",
-        "danger": "#ff2244",
-        "text_pri": "#f3e7ff",
-        "text_sec": "#a48ac8",
-    },
-    "FROST_SIGNAL": {
-        "bg": "#020610",
-        "bg_grad": "radial-gradient(920px 540px at 20% 12%, rgba(0,170,255,.12) 0%, rgba(0,0,0,0) 60%), radial-gradient(900px 520px at 86% 18%, rgba(0,255,210,.08) 0%, rgba(0,0,0,0) 62%), linear-gradient(180deg, #020610 0%, #010309 100%)",
-        "card": "#051022",
-        "surface": "#040c1a",
-        "border": "#0c2a4a",
-        "accent": "#00aaff",
-        "secondary": "#00ffd2",
-        "terciaria": "#063055",
-        "danger": "#ff3344",
-        "text_pri": "#dff3ff",
-        "text_sec": "#7aa6c2",
-    },
-    "EMBER_CORE": {
-        "bg": "#070206",
-        "bg_grad": "radial-gradient(900px 520px at 18% 12%, rgba(255,112,64,.16) 0%, rgba(0,0,0,0) 58%), radial-gradient(900px 520px at 86% 18%, rgba(224,32,48,.10) 0%, rgba(0,0,0,0) 62%), linear-gradient(180deg, #070206 0%, #020102 100%)",
-        "card": "#12050a",
-        "surface": "#0c0407",
-        "border": "#3a1018",
-        "accent": "#ff7040",
-        "secondary": "#e02030",
-        "terciaria": "#4a0d12",
-        "danger": "#ff1040",
-        "text_pri": "#ffe0dc",
-        "text_sec": "#b48585",
-    },
-    "ULTRON_ERA": {
-        "bg": "#04060c",
-        "bg_grad": "radial-gradient(920px 540px at 20% 10%, rgba(255,180,0,.14) 0%, rgba(0,0,0,0) 58%), radial-gradient(900px 520px at 86% 18%, rgba(255,106,0,.10) 0%, rgba(0,0,0,0) 62%), linear-gradient(180deg, #04060c 0%, #010103 100%)",
-        "card": "#0a0f18",
-        "surface": "#080c14",
-        "border": "#1a1510",
-        "accent": "#ffb400",
-        "secondary": "#ff6a00",
-        "terciaria": "#8b2500",
-        "danger": "#ff3344",
-        "text_pri": "#ffe8cc",
-        "text_sec": "#b89870",
-    },
-    "ARC_FORGE": {
-        "bg": "#030508",
-        "card": "#0c1018",
-        "surface": "#070a10",
-        "border": "#2a1a08",
-        "accent": "#ffa500",
-        "secondary": "#ff4500",
-        "terciaria": "#663200",
-        "danger": "#ff2222",
-        "text_pri": "#fff0dd",
-        "text_sec": "#a08060",
-    },
 
-    "LARANJA_MESA": {
-        "bg": "#030508",
-        "card": "#0c1018",
-        "surface": "#070a10",
-        "border": "#2a1a08",
-        "accent": "#ffa500",
-        "secondary": "#ff4500",
-        "terciaria": "#663200",
-        "danger": "#ff2222",
-        "text_pri": "#fff0dd",
-        "text_sec": "#a08060",
+# Estrutura de pintura (kit de cores resolvidas para QPainter)
+
+
+@dataclass
+class KitPintura:
+    accent:        QColor
+    scan_line:     QColor
+    ring_outer:    QColor
+    core_white:    QColor
+    core_mid:      QColor
+    core_outer:    QColor
+    core_hot:      QColor
+    tentacle:      QColor
+    tentacle_hot:  QColor
+    particle:      QColor
+    arc:           QColor
+    title:         QColor
+    subtitle:      QColor
+
+
+
+# Definição dos temas  (dict raw com strings hex / rgba)
+
+
+def _tema_laranja_mesa() -> dict:
+    return {
+        "accent":        "#FF8C00",
+        "scan_line":     "#FF8C0022",
+        "ring_outer":    "#FF8C0055",
+        "core_white":    "#FFFFFF",
+        "core_mid":      "#FFB347",
+        "core_outer":    "#FF6600",
+        "core_hot":      "#CC3300",
+        "tentacle":      "#FF8C00",
+        "tentacle_hot":  "#FF4500",
+        "particle":      "#FFA040",
+        "arc":           "#FF8C00",
+        "title":         "#FFD580",
+        "subtitle":      "#FFA040",
+        "danger":        "#FF3333",
     }
+
+
+def _tema_azul_artico() -> dict:
+    return {
+        "accent":        "#00BFFF",
+        "scan_line":     "#00BFFF22",
+        "ring_outer":    "#00BFFF55",
+        "core_white":    "#FFFFFF",
+        "core_mid":      "#66D9FF",
+        "core_outer":    "#007ACC",
+        "core_hot":      "#005F99",
+        "tentacle":      "#00BFFF",
+        "tentacle_hot":  "#0080FF",
+        "particle":      "#40D0FF",
+        "arc":           "#00BFFF",
+        "title":         "#B0EEFF",
+        "subtitle":      "#66CCFF",
+        "danger":        "#FF4444",
+    }
+
+
+def _tema_verde_matrix() -> dict:
+    return {
+        "accent":        "#00FF41",
+        "scan_line":     "#00FF4122",
+        "ring_outer":    "#00FF4155",
+        "core_white":    "#CCFFCC",
+        "core_mid":      "#00CC33",
+        "core_outer":    "#007700",
+        "core_hot":      "#004400",
+        "tentacle":      "#00FF41",
+        "tentacle_hot":  "#00CC22",
+        "particle":      "#66FF88",
+        "arc":           "#00FF41",
+        "title":         "#AAFFAA",
+        "subtitle":      "#66FF66",
+        "danger":        "#FF3333",
+    }
+
+
+def _tema_roxo_nebula() -> dict:
+    return {
+        "accent":        "#BF5FFF",
+        "scan_line":     "#BF5FFF22",
+        "ring_outer":    "#BF5FFF55",
+        "core_white":    "#F0DDFF",
+        "core_mid":      "#9933FF",
+        "core_outer":    "#660099",
+        "core_hot":      "#440066",
+        "tentacle":      "#BF5FFF",
+        "tentacle_hot":  "#9900FF",
+        "particle":      "#D088FF",
+        "arc":           "#BF5FFF",
+        "title":         "#E8BBFF",
+        "subtitle":      "#CC99FF",
+        "danger":        "#FF3355",
+    }
+
+
+def _tema_vermelho_marte() -> dict:
+    return {
+        "accent":        "#FF2222",
+        "scan_line":     "#FF222222",
+        "ring_outer":    "#FF222255",
+        "core_white":    "#FFDDDD",
+        "core_mid":      "#FF5555",
+        "core_outer":    "#CC0000",
+        "core_hot":      "#880000",
+        "tentacle":      "#FF2222",
+        "tentacle_hot":  "#FF6600",
+        "particle":      "#FF6666",
+        "arc":           "#FF2222",
+        "title":         "#FFAAAA",
+        "subtitle":      "#FF7777",
+        "danger":        "#FF6600",
+    }
+
+
+
+# Registro central
+
+
+TEMAS_CORE: dict[str, dict] = {
+    "LARANJA_MESA":  _tema_laranja_mesa(),
+    "AZUL_ARTICO":   _tema_azul_artico(),
+    "VERDE_MATRIX":  _tema_verde_matrix(),
+    "ROXO_NEBULA":   _tema_roxo_nebula(),
+    "VERMELHO_MARTE": _tema_vermelho_marte(),
 }
 
-def hex_rgb(h: str) -> tuple[int, int, int]:
-    h = (h or "#000000").strip()
-    if len(h) == 7 and h[0] == "#":
-        return int(h[1:3], 16), int(h[3:5], 16), int(h[5:7], 16)
-    return 0, 255, 136
 
 
-def qcolor_hex(h: str, a: int = 255) -> QColor:
-    r, g, b = hex_rgb(h)
-    c = QColor(r, g, b)
-    c.setAlpha(a)
-    return c
+# Helpers públicos
 
 
-@dataclass(frozen=True)
-class ThemeKit:
-    ring_outer: QColor
-    scan_line: QColor
-    bg_tint: QColor
-    glow_hot: QColor
-    glow_mid: QColor
-    tentacle: QColor
-    tentacle_hot: QColor
-    particle: QColor
-    arc: QColor
-    title: QColor
-    subtitle: QColor
-    core_white: QColor
-    core_mid: QColor
-    core_outer: QColor
-    core_hot: QColor
-    accent: QColor
-    secondary: QColor
-    danger: QColor
+def lista_temas() -> list[str]:
+    """Retorna os nomes de todos os temas disponíveis."""
+    return list(TEMAS_CORE.keys())
 
 
-def kit_pintura(nome_tema: str) -> ThemeKit:
-    raw = TEMAS_CORE.get(nome_tema) or TEMAS_CORE["PHANTOM"]
-    ac = qcolor_hex(raw["accent"])
-    sec = qcolor_hex(raw["secondary"])
-    dg = qcolor_hex(raw["danger"])
-    tp = qcolor_hex(raw["text_pri"])
-    ts = qcolor_hex(raw["text_sec"])
-    ar, ag, ab = ac.red(), ac.green(), ac.blue()
-    sr, sg, sb = sec.red(), sec.green(), sec.blue()
-    ring = QColor(ar, ag, ab, 55)
-    scan = QColor(ts.red(), ts.green(), ts.blue(), 18)
-    bg_t = QColor(ar, ag, ab, 12)
-    glow_hot = QColor(ar, ag, ab, 90)
-    glow_mid = QColor(max(0, ar - 40), max(0, ag - 20), ab, 30)
-    tent = QColor(ar, ag, ab, 200)
-    tent_h = QColor(min(255, ar + 60), min(255, ag + 40), min(255, ab + 20), 220)
-    part = QColor(min(255, ar + 80), min(255, ag + 60), min(255, ab + 40), 200)
-    arc_c = QColor(sr, sg, sb, 160)
-    sub = QColor(tp.red(), tp.green(), tp.blue(), int(tp.alpha() * 0.65))
-    cw = QColor(255, 255, 255, 255)
-    cm = QColor(min(255, ar + 120), min(255, ag + 100), min(255, ab + 80), 250)
-    cout = QColor(ar, ag, ab, 160)
-    chot = QColor(dg.red(), dg.green(), dg.blue(), 0)
-    return ThemeKit(
-        ring_outer=ring,
-        scan_line=scan,
-        bg_tint=bg_t,
-        glow_hot=glow_hot,
-        glow_mid=glow_mid,
-        tentacle=tent,
-        tentacle_hot=tent_h,
-        particle=part,
-        arc=arc_c,
-        title=tp,
-        subtitle=sub,
-        core_white=cw,
-        core_mid=cm,
-        core_outer=cout,
-        core_hot=chot,
-        accent=ac,
-        secondary=sec,
-        danger=dg,
+def _qc(hex_or_rgba: str) -> QColor:
+    """Converte string hex (#RRGGBB ou #RRGGBBAA) em QColor."""
+    return QColor(hex_or_rgba)
+
+
+def kit_pintura(nome: str) -> KitPintura:
+    """Resolve um tema pelo nome e devolve um KitPintura pronto para QPainter."""
+    raw = TEMAS_CORE.get(nome, TEMAS_CORE["LARANJA_MESA"])
+    return KitPintura(
+        accent       = _qc(raw["accent"]),
+        scan_line    = _qc(raw["scan_line"]),
+        ring_outer   = _qc(raw["ring_outer"]),
+        core_white   = _qc(raw["core_white"]),
+        core_mid     = _qc(raw["core_mid"]),
+        core_outer   = _qc(raw["core_outer"]),
+        core_hot     = _qc(raw["core_hot"]),
+        tentacle     = _qc(raw["tentacle"]),
+        tentacle_hot = _qc(raw["tentacle_hot"]),
+        particle     = _qc(raw["particle"]),
+        arc          = _qc(raw["arc"]),
+        title        = _qc(raw["title"]),
+        subtitle     = _qc(raw["subtitle"]),
     )
 
 
-def qss_botao_accent(tema: dict) -> str:
-    r, g, b = hex_rgb(tema["accent"])
-    return (
-        f"QPushButton {{ background-color: transparent;"
-        f" border: 1.5px solid rgba({r}, {g}, {b}, 140); border-radius: 34px;"
-        f" min-width: 68px; max-width: 68px; min-height: 68px; max-height: 68px; }}"
-        f"QPushButton:hover {{ background-color: rgba({r}, {g}, {b}, 32);"
-        f" border: 1.5px solid rgba({r}, {g}, {b}, 210); }}"
-        f"QPushButton:pressed {{ background-color: rgba({r}, {g}, {b}, 55); }}"
-    )
+
+# QSS helpers para botões
 
 
-def qss_botao_danger(tema: dict) -> str:
-    r, g, b = hex_rgb(tema["danger"])
-    return (
-        f"QPushButton {{ background-color: transparent;"
-        f" border: 1.5px solid rgba({r}, {g}, {b}, 130); border-radius: 34px;"
-        f" min-width: 68px; max-width: 68px; min-height: 68px; max-height: 68px; }}"
-        f"QPushButton:hover {{ background-color: rgba({r}, {g}, {b}, 30);"
-        f" border: 1.5px solid rgba({r}, {g}, {b}, 210); }}"
-        f"QPushButton:pressed {{ background-color: rgba({r}, {g}, {b}, 55); }}"
-    )
+def _hex(raw: dict, chave: str) -> str:
+    """Extrai a cor hex de uma chave do dict raw."""
+    return raw[chave]
 
 
-def qss_botao_muted(tema: dict) -> str:
-    r, g, b = hex_rgb(tema["danger"])
-    return (
-        f"QPushButton {{ background-color: transparent;"
-        f" border: 1.5px solid rgba({r}, {g}, {b}, 165); border-radius: 34px;"
-        f" min-width: 68px; max-width: 68px; min-height: 68px; max-height: 68px; }}"
-        f"QPushButton:hover {{ background-color: rgba({r}, {g}, {b}, 38);"
-        f" border: 1.5px solid rgba({r}, {g}, {b}, 230); }}"
-    )
+def qss_botao_accent(raw: dict) -> str:
+    ac = _hex(raw, "accent")
+    return f"""
+        QPushButton {{
+            background: transparent;
+            border: 1.5px solid {ac};
+            border-radius: 8px;
+            color: {ac};
+            padding: 4px 8px;
+        }}
+        QPushButton:hover {{
+            background: {ac}33;
+        }}
+        QPushButton:pressed {{
+            background: {ac}66;
+        }}
+    """
 
 
-def lista_temas() -> tuple[str, ...]:
-    return tuple(TEMAS_CORE.keys())
+def qss_botao_danger(raw: dict) -> str:
+    dg = _hex(raw, "danger")
+    return f"""
+        QPushButton {{
+            background: transparent;
+            border: 1.5px solid {dg};
+            border-radius: 8px;
+            color: {dg};
+            padding: 4px 8px;
+        }}
+        QPushButton:hover {{
+            background: {dg}33;
+        }}
+        QPushButton:pressed {{
+            background: {dg}66;
+        }}
+    """
+
+
+def qss_botao_muted(raw: dict) -> str:
+    dg = _hex(raw, "danger")
+    return f"""
+        QPushButton {{
+            background: {dg}22;
+            border: 1.5px solid {dg}88;
+            border-radius: 8px;
+            color: {dg};
+            padding: 4px 8px;
+        }}
+        QPushButton:hover {{
+            background: {dg}44;
+        }}
+        QPushButton:pressed {{
+            background: {dg}66;
+        }}
+    """

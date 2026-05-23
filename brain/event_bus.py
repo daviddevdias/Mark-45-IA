@@ -30,21 +30,21 @@ Handler = Callable[[Evento], Coroutine | None]
 
 class EventBus:
 
-    def __init__(self) -> None:
+    def __init__(self):
         self.listeners: dict[str, list[Handler]] = defaultdict(list)
         self.historico: list[Evento]             = []
         self.max_hist = 200
         self.loop: asyncio.AbstractEventLoop | None = None
 
-    def registrar_loop(self, loop: asyncio.AbstractEventLoop) -> None:
+    def registrar_loop(self, loop: asyncio.AbstractEventLoop):
         self.loop = loop
 
-    def assinar(self, tipo: str, handler: Handler) -> None:
+    def assinar(self, tipo: str, handler: Handler):
         if handler not in self.listeners[tipo]:
             self.listeners[tipo].append(handler)
             log.debug("Handler %s registrado em '%s'", getattr(handler, "__name__", "?"), tipo)
 
-    def cancelar(self, tipo: str, handler: Handler) -> None:
+    def cancelar(self, tipo: str, handler: Handler):
         try:
             self.listeners[tipo].remove(handler)
         except ValueError:
@@ -56,7 +56,7 @@ class EventBus:
         except RuntimeError:
             return None
 
-    def publicar(self, tipo: str, dados: dict | None = None, origem: str = "") -> None:
+    def publicar(self, tipo: str, dados: dict | None = None, origem: str = ""):
         ev = Evento(tipo=tipo, dados=dados or {}, origem=origem)
         self._guardar(ev)
 
@@ -71,7 +71,7 @@ class EventBus:
                 log.error("Handler '%s' falhou no evento '%s': %s",
                           getattr(handler, "__name__", "?"), tipo, exc)
 
-    async def publicar_async(self, tipo: str, dados: dict | None = None, origem: str = "") -> None:
+    async def publicar_async(self, tipo: str, dados: dict | None = None, origem: str = ""):
         ev = Evento(tipo=tipo, dados=dados or {}, origem=origem)
         self._guardar(ev)
 
@@ -84,7 +84,7 @@ class EventBus:
                 log.error("Handler async '%s' falhou: %s",
                           getattr(handler, "__name__", "?"), exc)
 
-    def _guardar(self, ev: Evento) -> None:
+    def _guardar(self, ev: Evento):
         self.historico.append(ev)
         if len(self.historico) > self.max_hist:
             self.historico = self.historico[-self.max_hist:]

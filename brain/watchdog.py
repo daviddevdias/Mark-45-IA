@@ -32,7 +32,7 @@ class RegistroModulo:
 
 class Watchdog:
 
-    def __init__(self) -> None:
+    def __init__(self):
         self.modulos: dict[str, RegistroModulo] = {}
         self.lock    = threading.Lock()
         self.rodando = False
@@ -40,12 +40,12 @@ class Watchdog:
         self.stop_event = threading.Event()
 
     def registrar(self, nome: str, check_fn: Callable[[], bool],
-                  reset_fn: Callable[[], None] | None = None) -> None:
+                  reset_fn: Callable[[], None] | None = None):
         with self.lock:
             self.modulos[nome] = RegistroModulo(nome=nome, check_fn=check_fn, reset_fn=reset_fn)
         log.info("[Watchdog] Módulo '%s' registrado.", nome)
 
-    def checar(self, reg: RegistroModulo) -> None:
+    def checar(self, reg: RegistroModulo):
         agora = time.time()
         reg.ultimo_check = agora
         try:
@@ -83,7 +83,7 @@ class Watchdog:
         if len(reg.historico) > 50:
             reg.historico = reg.historico[-50:]
 
-    def resetar(self, reg: RegistroModulo) -> None:
+    def resetar(self, reg: RegistroModulo):
         reg.status = StatusModulo.REINICIANDO
         log.info("[Watchdog] Reiniciando '%s'...", reg.nome)
         try:
@@ -96,7 +96,7 @@ class Watchdog:
             log.error("[Watchdog] Falha ao reiniciar '%s': %s", reg.nome, exc)
             reg.status = StatusModulo.FALHOU
 
-    def loop_watchdog(self) -> None:
+    def loop_watchdog(self):
         while self.rodando:
             with self.lock:
                 modulos = list(self.modulos.values())
@@ -109,7 +109,7 @@ class Watchdog:
             self.stop_event.wait(timeout=INTERVALO_CHECK)
             self.stop_event.clear()
 
-    def iniciar(self) -> None:
+    def iniciar(self):
         if self.rodando:
             return
 
@@ -119,7 +119,7 @@ class Watchdog:
         self.thread.start()
         log.info("[Watchdog] Iniciado.")
 
-    def parar(self) -> None:
+    def parar(self):
         self.rodando = False
         self.stop_event.set()
         if self.thread and self.thread.is_alive():
@@ -145,7 +145,7 @@ def check_ia() -> bool:
     except Exception:
         return False
 
-def reset_ia() -> None:
+def reset_ia():
     try:
         from engine.ia_router import detectar_modelo
         import asyncio
@@ -162,6 +162,7 @@ def check_audio() -> bool:
     except Exception:
         return False
 
-def registrar_modulos_padrao() -> None:
+def registrar_modulos_padrao():
     watchdog.registrar("ia",      check_ia,      reset_ia)
     watchdog.registrar("audio",   check_audio,   None)
+    watchdog.registrar("audio", check_audio, None)

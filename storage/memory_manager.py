@@ -64,7 +64,7 @@ def load_memory(force: bool = False) -> dict:
             memoria_cache = estrutura_memoria_vazia()
             return memoria_cache
 
-def save_memory(memory: dict) -> None:
+def save_memory(memory: dict):
     global memoria_cache
 
     MEMORY_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -76,19 +76,19 @@ def save_memory(memory: dict) -> None:
         tmp.replace(MEMORY_PATH)
         memoria_cache = json.loads(serializado)
 
-def invalidate_cache() -> None:
+def invalidate_cache():
     global memoria_cache
     with trava_memoria:
         memoria_cache = None
 
-def get_nome() -> str:
+def get_nome():
     cfg_n = (getattr(config, "NOME_MESTRE", None) or "").strip()
     if cfg_n:
         return cfg_n
     v = load_memory().get("identity", {}).get("mestre", {}).get("value", "")
     return (v or "").strip() or "Usuário"
 
-def get_cidade() -> str:
+def get_cidade():
     cp = (getattr(config, "cidade_padrao", None) or "").strip()
     if cp:
         return cp
@@ -100,7 +100,7 @@ def get_value(category: str, key: str, default: Any = None) -> Any:
         return node.get("value", default)
     return node or default
 
-def format_memory_for_prompt() -> str:
+def format_memory_for_prompt():
     mem = load_memory()
     out = ["[MEMORIA DO USUARIO]"]
 
@@ -162,7 +162,7 @@ def json_da_resposta_ia(raw: str) -> dict | None:
                 return None
     return None
 
-async def process_memory_logic(user_text: str, core_text: str) -> None:
+async def process_memory_logic(user_text: str, core_text: str):
     try:
         from engine.ia_router import router
 

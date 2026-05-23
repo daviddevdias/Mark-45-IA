@@ -21,7 +21,7 @@ _AUTH_TTL = 300
 
 
 
-def carregar_config() -> None:
+def carregar_config():
     global _ALLOWED_IDS, _AUTH_TOKEN
     ids_raw = os.environ.get("TELEGRAM_ALLOWED_IDS", "")
     if ids_raw:
@@ -51,7 +51,7 @@ def carregar_config() -> None:
 
 
 
-def adicionar_id_autorizado(chat_id: int) -> None:
+def adicionar_id_autorizado(chat_id: int):
     _ALLOWED_IDS.add(chat_id)
 
 
@@ -85,7 +85,7 @@ def verificar_token(token_fornecido: str) -> bool:
 
 
 
-def marcar_pendente_auth(chat_id: int) -> None:
+def marcar_pendente_auth(chat_id: int):
     _PENDING_AUTH[chat_id] = time.time()
 
 
@@ -109,7 +109,7 @@ def esta_pendente_auth(chat_id: int) -> bool:
 
 
 
-def limpar_pendente(chat_id: int) -> None:
+def limpar_pendente(chat_id: int):
     _PENDING_AUTH.pop(chat_id, None)
 
 

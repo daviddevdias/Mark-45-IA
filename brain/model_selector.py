@@ -51,14 +51,14 @@ def modelos_ollama() -> set[str]:
         pass
     return set()
 
-def modelo_rapido(modelos: set[str]) -> str | None:
+def modelo_rapido(modelos: set[str]):
     for c in ("phi3:mini", "phi3", "llama3:8b", "llama3"):
         if c in modelos:
             return c
 
     return None
 
-def modelo_atual() -> str:
+def modelo_atual():
     try:
         from engine.ia_router import modelo as m
         return m or "qwen/qwen2.5-vl-72b-instruct"
@@ -77,7 +77,7 @@ def complexidade_heuristica(comando: str) -> float:
 
     return round((comprimento_score * 0.5 + densidade_score * 0.3 + punct_score * 0.2), 3)
 
-def escolher_modelo(contexto: dict) -> str:
+def escolher_modelo(contexto: dict):
     comando       = contexto.get("comando", "")
     tem_imagem    = bool(contexto.get("imagem"))
     forcado       = contexto.get("modelo_forcado", "")

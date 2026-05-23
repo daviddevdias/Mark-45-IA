@@ -50,7 +50,7 @@ def conectar() -> sqlite3.Connection:
     c.commit()
     return c
 
-def normalizar_texto(texto: str) -> str:
+def normalizar_texto(texto: str) :
     t = unicodedata.normalize("NFD", texto.lower())
     t = "".join(c for c in t if unicodedata.category(c) != "Mn")
     return re.sub(r"\s+", " ", t).strip()
@@ -67,10 +67,10 @@ def calcular_score(query_tokens: set[str], valor: str, contexto: str) -> float:
 
 class MemoriaRAG:
 
-    def __init__(self) -> None:
+    def __init__(self):
         self.curta: list[dict] = []
 
-    def salvar(self, tipo: str, chave: str, valor: str, contexto: str = "") -> None:
+    def salvar(self, tipo: str, chave: str, valor: str, contexto: str = ""):
         agora = time.time()
         try:
             with conectar() as c:
@@ -96,7 +96,7 @@ class MemoriaRAG:
         if len(self.curta) > MAX_CURTA:
             self.curta = self.curta[-MAX_CURTA:]
 
-    def registrar_interacao(self, comando: str, resposta: str) -> None:
+    def registrar_interacao(self, comando: str, resposta: str):
         chave = hashlib.md5(comando.encode()).hexdigest()[:12]
         self.salvar("interacao", chave, resposta[:1000], contexto=comando[:300])
 
@@ -151,7 +151,7 @@ class MemoriaRAG:
                 break
         return unicos
 
-    def contexto_para_prompt(self, query: str, max_chars: int = 800) -> str:
+    def contexto_para_prompt(self, query: str, max_chars: int = 800) :
         itens = self.buscar(query, limite=4)
         if not itens:
             return ""
@@ -165,10 +165,10 @@ class MemoriaRAG:
             total += len(trecho)
         return "\n".join(partes)
 
-    def salvar_preferencia(self, chave: str, valor: str) -> None:
+    def salvar_preferencia(self, chave: str, valor: str):
         self.salvar("preferencia", chave, valor)
 
-    def get_preferencia(self, chave: str, default: str = "") -> str:
+    def get_preferencia(self, chave: str, default: str = "") :
         try:
             with conectar() as c:
                 row = c.execute(

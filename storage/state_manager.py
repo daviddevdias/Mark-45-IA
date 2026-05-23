@@ -24,7 +24,7 @@ class EstadoSistema:
 
 class StateManager:
 
-    def __init__(self) -> None:
+    def __init__(self):
         self.estado   = EstadoSistema()
         self.lock     = threading.RLock()
         self.watchers: dict[str, list] = {}
@@ -33,7 +33,7 @@ class StateManager:
         with self.lock:
             return getattr(self.estado, chave, default)
 
-    def set(self, chave: str, valor: Any) -> None:
+    def set(self, chave: str, valor: Any):
         with self.lock:
             antigo = getattr(self.estado, chave, None)
             if antigo == valor:
@@ -52,7 +52,7 @@ class StateManager:
         except Exception:
             pass
 
-    def update(self, dados: dict) -> None:
+    def update(self, dados: dict):
         for k, v in dados.items():
             self.set(k, v)
 
@@ -63,10 +63,10 @@ class StateManager:
                 for k in self.estado.__dataclass_fields__
             }
 
-    def watch(self, chave: str, fn) -> None:
+    def watch(self, chave: str, fn):
         self.watchers.setdefault(chave, []).append(fn)
 
-    def set_contexto(self, chave: str, valor: Any) -> None:
+    def set_contexto(self, chave: str, valor: Any):
         with self.lock:
             self.estado.contexto_ativo[chave] = valor
 
@@ -74,7 +74,7 @@ class StateManager:
         with self.lock:
             return self.estado.contexto_ativo.get(chave, default)
 
-    def set_flag(self, flag: str, valor: bool = True) -> None:
+    def set_flag(self, flag: str, valor: bool = True):
         with self.lock:
             self.estado.flags[flag] = valor
 

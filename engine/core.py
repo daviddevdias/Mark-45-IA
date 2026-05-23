@@ -38,10 +38,10 @@ class UIBridgeManager:
     def __init__(self):
         self._bridge = None
 
-    def registrar(self, bridge: Any) -> None:
+    def registrar(self, bridge: Any):
         self._bridge = bridge
 
-    def emitir(self, dados: dict) -> None:
+    def emitir(self, dados: dict):
         if self._bridge:
             try:
                 self._bridge.dados_para_ui.emit(json.dumps(dados))
@@ -62,7 +62,7 @@ class MonitorState:
             return self.aguardando_confirmacao
 
     @aguardando.setter
-    def aguardando(self, valor: bool) -> None:
+    def aguardando(self, valor: bool):
         with self._lock:
             self.aguardando_confirmacao = valor
 
@@ -73,7 +73,7 @@ class SystemOrchestrator:
         self.state = state
 
     @staticmethod
-    def construir_contexto() -> str:
+    def construir_contexto():
         nome = get_nome()
         mem = load_memory()
 
@@ -88,10 +88,10 @@ class SystemOrchestrator:
             ctx += f" Pref: {mem['preferences']}."
         return ctx
 
-    async def inicializar_ia(self) -> None:
+    async def inicializar_ia(self):
         await detectar_modelo()
 
-    def registrar_telemetria(self, tipo: str, comando: str, modulo: str, ts_inicio: float) -> None:
+    def registrar_telemetria(self, tipo: str, comando: str, modulo: str, ts_inicio: float):
         duracao = time.time() - ts_inicio
         logging.info(f"[TELEMETRIA] {tipo} | Modulo: {modulo} | Duracao: {duracao:.3f}s | Cmd: '{comando}'")
 
@@ -108,7 +108,7 @@ class SystemOrchestrator:
         except Exception as e:
             logging.debug(f"Aviso: Não foi possível gravar telemetria no banco: {e}")
 
-    async def analisar_tela_agora(self) -> None:
+    async def analisar_tela_agora(self):
         await falar("Iniciando análise da tela.")
 
         img = await asyncio.get_running_loop().run_in_executor(None, capturar_frame_base64)
@@ -140,7 +140,7 @@ class SystemOrchestrator:
             logging.info(f"[VISÃO]: {resultado.resumo}")
             await falar(resultado.resumo)
 
-    async def ligar_monitoramento(self, comando: str) -> None:
+    async def ligar_monitoramento(self, comando: str):
         if vision_estado.rodando:
             parar_monitor()
             await asyncio.sleep(0.5)
@@ -158,13 +158,13 @@ class SystemOrchestrator:
         self.ui.emitir({"monitor_status": "ativo", "monitor_intervalo": int(intervalo)})
         await falar(f"Monitoramento ativo. Intervalo de {int(intervalo)} segundos.")
 
-    async def desligar_monitoramento(self) -> None:
+    async def desligar_monitoramento(self):
         self.state.aguardando = False
         stats = desligar_monitor()
         self.ui.emitir({"monitor_status": "inativo", "monitor_stats": stats})
         await falar(f"Monitoramento suspenso. {stats.get('total_problemas', 0)} problema(s) registrados.")
 
-    async def status_do_sistema(self) -> None:
+    async def status_do_sistema(self):
         s = info_monitor()
         if s.get("rodando"):
             msg = f"Operacional. {s.get('chamadas_api', 0)} consultas, {s.get('total_problemas', 0)} problema(s)."
@@ -172,7 +172,7 @@ class SystemOrchestrator:
             msg = "Sistema em repouso."
         await falar(msg)
 
-    async def loop_monitoramento(self, resultado: Any) -> None:
+    async def loop_monitoramento(self, resultado: Any):
         if not isinstance(resultado, ResultadoAnalise) or self.state.aguardando:
             return
 
@@ -286,7 +286,6 @@ inicializar_ia = orchestrator.inicializar_ia
 registrar_ui_bridge     = ui_manager.registrar
 processar_comando       = orchestrator.processar_comando
 
-# Exportações que controller.py importa diretamente
 ligar_monitoramento     = orchestrator.ligar_monitoramento
 desligar_monitoramento  = orchestrator.desligar_monitoramento
 status_do_sistema       = orchestrator.status_do_sistema

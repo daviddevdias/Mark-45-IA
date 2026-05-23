@@ -31,23 +31,23 @@ def segmentar(texto: str) -> list[str]:
 
 class FilaTTS:
 
-    def __init__(self) -> None:
+    def __init__(self):
         self.fila:    asyncio.Queue[str | None] = asyncio.Queue(maxsize=20)
         self.rodando: bool                      = False
         self.task:    asyncio.Task | None       = None
         self.falar:   Callable | None           = None
 
-    def registrar_falar(self, fn: Callable) -> None:
+    def registrar_falar(self, fn: Callable):
         self.falar = fn
 
-    async def iniciar(self) -> None:
+    async def iniciar(self):
         if self.rodando:
             return
 
         self.rodando = True
         self.task    = asyncio.create_task(self.consumidor())
 
-    def limpar_fila(self) -> None:
+    def limpar_fila(self):
         while not self.fila.empty():
             try:
                 self.fila.get_nowait()
@@ -55,7 +55,7 @@ class FilaTTS:
             except asyncio.QueueEmpty:
                 break
 
-    async def parar(self, forcar: bool = False) -> None:
+    async def parar(self, forcar: bool = False):
         self.rodando = False
         if forcar:
             self.limpar_fila()
@@ -67,14 +67,14 @@ class FilaTTS:
             except (asyncio.TimeoutError, Exception):
                 self.task.cancel()
 
-    async def enfileirar(self, texto: str) -> None:
+    async def enfileirar(self, texto: str):
         for seg in segmentar(texto):
             if not self.rodando:
                 break
 
             await self.fila.put(seg)
 
-    async def consumidor(self) -> None:
+    async def consumidor(self):
         while self.rodando:
             try:
                 item = await asyncio.wait_for(self.fila.get(), timeout=0.5)

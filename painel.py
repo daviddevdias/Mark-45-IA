@@ -144,7 +144,7 @@ def montar_biblioteca_comandos() -> list[dict]:
     return biblioteca
 
 
-async def run_test_voice() -> None:
+async def run_test_voice():
     from audio.voz import falar
     await falar("Teste de síntese de voz. Painel JARVIS operacional.")
 
@@ -158,7 +158,7 @@ class JarvisBridge(QObject):
         self.ram_atual  = 0.0
         self.window_ref = None
 
-    def bind_window(self, w: QMainWindow) -> None:
+    def bind_window(self, w: QMainWindow):
         self.window_ref = w
 
     @pyqtSlot()
@@ -236,13 +236,7 @@ class JarvisBridge(QObject):
             "device_index":         getattr(config, "DEVICE_INDEX",           1),
         })
 
-    @pyqtSlot(result=str)
-    def obter_temas_sistema(self) -> str:
-        try:
-            from app_ul.theme import TEMAS_CORE
-            return json.dumps(TEMAS_CORE)
-        except Exception:
-            return json.dumps({})
+
 
     @pyqtSlot(result=str)
     def obter_tema_ativo(self) -> str:
@@ -435,7 +429,7 @@ class PainelCore(QMainWindow):
         except Exception:
             pass
 
-        def hook_voz(on: bool, vol: float = 1.0) -> None:
+        def hook_voz(on: bool, vol: float = 1.0):
             try:
                 self.bridge.dados_para_ui.emit(
                     json.dumps({"voz_speaking": bool(on), "voz_vol": float(vol)})
@@ -445,7 +439,7 @@ class PainelCore(QMainWindow):
 
         config.registrar_callback_voz_painel(hook_voz)
 
-    def closeEvent(self, event) -> None:
+    def closeEvent(self, event):
         self.hide()
         event.ignore()
 

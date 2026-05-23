@@ -33,7 +33,7 @@ monitorando = False
 
 
 
-def nome() -> str:
+def nome():
     return get_nome() or "Chefe"
 
 
@@ -42,7 +42,7 @@ def nome() -> str:
 
 
 
-def cidade_padrao() -> str:
+def cidade_padrao():
     try:
         g = (getattr(config, "cidade_padrao", None) or "").strip()
         if g:

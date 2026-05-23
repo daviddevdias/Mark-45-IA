@@ -39,7 +39,7 @@ class VoiceState(QObject):
     def intensity_target(self) -> float:
         return self._intensity_target
 
-    def set_speaking(self, on: bool, vol: float = 1.0) -> None:
+    def set_speaking(self, on: bool, vol: float = 1.0):
         new_target = max(0.2, min(1.0, float(vol))) if on else 0.1
         prev_s = self._speaking
         self._speaking = bool(on)
@@ -64,7 +64,7 @@ def get_voice_state() -> VoiceState:
 
 
 
-def falar_on(vol: float = 1.0) -> None:
+def falar_on(vol: float = 1.0):
     get_voice_state().set_speaking(True, vol)
 
 
@@ -72,7 +72,7 @@ def falar_on(vol: float = 1.0) -> None:
 
 
 
-def falar_off() -> None:
+def falar_off():
     get_voice_state().set_speaking(False)
 
 
@@ -177,7 +177,7 @@ class JarvisUI(QWidget):
         self.timer_repintar.timeout.connect(self.atualizar_animacao)
         self.timer_repintar.start(16)
 
-    def centralizar_janela(self) -> None:
+    def centralizar_janela(self):
         screen = QApplication.primaryScreen().geometry()
         x = (screen.width() - self.width()) // 2
         y = (screen.height() - self.height()) // 2
@@ -193,7 +193,7 @@ class JarvisUI(QWidget):
             return False
         return False
 
-    def aplicar_tema(self, nome: str) -> None:
+    def aplicar_tema(self, nome: str):
         if nome not in TEMAS_CORE:
             return
         self._tema_nome = nome
@@ -214,7 +214,7 @@ class JarvisUI(QWidget):
             self.btn_mute.setStyleSheet(qss_botao_accent(self._raw))
         self.update()
 
-    def menu_tema(self, pos) -> None:
+    def menu_tema(self, pos):
         m = QMenu(self)
         sm = m.addMenu("Tema")
         for nome in lista_temas():
@@ -232,7 +232,7 @@ class JarvisUI(QWidget):
 
 
 
-    def montar_barra_botoes(self) -> None:
+    def montar_barra_botoes(self):
         self.barra_hud = QFrame(self)
         self.barra_hud.setObjectName("HudBar")
         self.barra_hud.setFixedSize(310, 90)
@@ -275,7 +275,7 @@ class JarvisUI(QWidget):
 
 
 
-    def alternar_microfone(self) -> None:
+    def alternar_microfone(self):
         self.is_muted = not self.is_muted
         hd = self._raw["danger"]
         if self.is_muted:
@@ -299,7 +299,7 @@ class JarvisUI(QWidget):
 
 
 
-    def abrir_painel_principal(self) -> None:
+    def abrir_painel_principal(self):
         if self.painel_referencia is not None and self.painel_referencia.isVisible():
             self.painel_referencia.raise_()
             self.painel_referencia.activateWindow()
@@ -323,7 +323,7 @@ class JarvisUI(QWidget):
 
 
 
-    def atualizar_animacao(self) -> None:
+    def atualizar_animacao(self):
         try:
             alvo = self._voice.intensity_target if self._voice.speaking else 0.1
             vel = 0.22 if alvo > self.intensidade_interna else 0.055
@@ -349,7 +349,7 @@ class JarvisUI(QWidget):
 
 
 
-    def closeEvent(self, event) -> None:
+    def closeEvent(self, event):
         self.timer_repintar.stop()
         self._settings.setValue("win_pos", self.pos())
         self._settings.setValue("theme", self._tema_nome)
@@ -365,7 +365,7 @@ class JarvisUI(QWidget):
 
 
 
-    def mousePressEvent(self, event) -> None:
+    def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.posicao_arrasto = (
                 event.globalPosition().toPoint() - self.frameGeometry().topLeft()
@@ -382,7 +382,7 @@ class JarvisUI(QWidget):
 
 
 
-    def mouseMoveEvent(self, event) -> None:
+    def mouseMoveEvent(self, event):
         if event.buttons() == Qt.MouseButton.LeftButton and self.posicao_arrasto is not None:
             self.move(event.globalPosition().toPoint() - self.posicao_arrasto)
 
@@ -393,7 +393,7 @@ class JarvisUI(QWidget):
 
 
 
-    def mouseReleaseEvent(self, event) -> None:
+    def mouseReleaseEvent(self, event):
         self.posicao_arrasto = None
 
 
@@ -406,7 +406,7 @@ class JarvisUI(QWidget):
 
 
 
-    def paintEvent(self, event) -> None:
+    def paintEvent(self, event):
         k = self._kit
         painter = QPainter(self)
         try:
@@ -469,7 +469,7 @@ class JarvisUI(QWidget):
 
 
 
-    def desenhar_linhas_radar(self, p, cx, cy, r, k) -> None:
+    def desenhar_linhas_radar(self, p, cx, cy, r, k):
         pen = QPen(k.scan_line, 1.0)
         p.setPen(pen)
         y0, y1 = int(cy - r), int(cy + r)
@@ -487,7 +487,7 @@ class JarvisUI(QWidget):
 
 
 
-    def desenhar_aneis(self, p, cx, cy, r1, r2, r3, t, iv, k) -> None:
+    def desenhar_aneis(self, p, cx, cy, r1, r2, r3, t, iv, k):
         pen = QPen(k.ring_outer, 1.2)
         pen.setStyle(Qt.PenStyle.DashLine)
         pen.setDashPattern([6, 8])
@@ -530,7 +530,7 @@ class JarvisUI(QWidget):
 
 
 
-    def desenhar_nucleo(self, p, cx, cy, r, iv, k) -> None:
+    def desenhar_nucleo(self, p, cx, cy, r, iv, k):
         halo = QRadialGradient(cx, cy, r * 1.5)
         hm = QColor(k.core_mid)
         hm.setAlpha(int(100 + iv * 80))
@@ -562,7 +562,7 @@ class JarvisUI(QWidget):
 
 
 
-    def desenhar_tentaculos(self, p, cx, cy, r_sol, ang_base, t, iv, k) -> None:
+    def desenhar_tentaculos(self, p, cx, cy, r_sol, ang_base, t, iv, k):
         for i in range(12):
             ang = ang_base + math.radians(i * (360 / 12))
             dist = 180 + math.sin(t * 1.4 + i * 0.9) * 70 + iv * 50 + (i % 3) * 20
@@ -591,7 +591,7 @@ class JarvisUI(QWidget):
 
 
 
-    def desenhar_tentaculo_unico(self, p, cx, cy, r_sol, angle, idx, t, dist) -> None:
+    def desenhar_tentaculo_unico(self, p, cx, cy, r_sol, angle, idx, t, dist):
         perp = angle + math.pi / 2.8
         onda = 75 + math.cos(t * 1.1 + idx) * 45
         sx = cx + math.cos(angle) * (r_sol * 0.78)
@@ -619,7 +619,7 @@ class JarvisUI(QWidget):
 
 
 
-    def desenhar_particulas(self, p, cx, cy, r_sol, r_max, ang_base, iv, k, red) -> None:
+    def desenhar_particulas(self, p, cx, cy, r_sol, r_max, ang_base, iv, k, red):
         specs = (
             (22, 1.25, -1.5, 3, 200),
             (16, 2.00, 1.0, 2, 160),
@@ -649,7 +649,7 @@ class JarvisUI(QWidget):
 
 
 
-    def desenhar_arco(self, p, cx, cy, r, t, k) -> None:
+    def desenhar_arco(self, p, cx, cy, r, t, k):
         num_seg = 24
         gap_deg = 4.0
         seg_deg = (360 / num_seg) - gap_deg
@@ -670,7 +670,7 @@ class JarvisUI(QWidget):
             start_deg = i * (360 / num_seg) + offset
             p.drawArc(rect, int(start_deg * 16), int(seg_deg * 16))
 
-    def desenhar_titulos(self, p, cx, y, iv, k) -> None:
+    def desenhar_titulos(self, p, cx, y, iv, k):
         alpha = int(130 + iv * 125)
         tit = QColor(k.title)
         tit.setAlpha(alpha)
@@ -703,7 +703,7 @@ if __name__ == "__main__":
     timer_unix.start(200)
     timer_unix.timeout.connect(lambda: None)
 
-    def demo_audio_fake() -> None:
+    def demo_audio_fake():
         v = get_voice_state()
         if v.speaking:
             v.set_speaking(False)

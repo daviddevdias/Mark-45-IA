@@ -38,7 +38,7 @@ def carregar_tudo() -> dict:
         dados.update(ler_json(API_DIR / nome))
     return dados
 
-def definir_valor_ui(chave: str, valor: str) -> None:
+def definir_valor_ui(chave: str, valor: str):
     nomes = {
         "gemini":               "GEMINI_API_KEY",
         "qwen":                 "QWEN_API_KEY",
@@ -86,14 +86,14 @@ def registrar_callback_voz_painel(cb):
     global voz_ui_cb
     voz_ui_cb = cb
 
-def notificar_voz_painel(on: bool, vol: float = 1.0) -> None:
+def notificar_voz_painel(on: bool, vol: float = 1.0):
     if voz_ui_cb:
         try:
             voz_ui_cb(bool(on), float(vol))
         except Exception:
             pass
 
-def recarregar_identidade_painel() -> None:
+def recarregar_identidade_painel():
     dados = ler_json(API_DIR / "config_core.json")
     nm = dados.get("nome_mestre")
     if nm and str(nm).strip():
@@ -126,7 +126,7 @@ DEEPGRAM_API_KEY         = cfg.get("deepgram_api_key", "")
 WHISPER_MODEL            = cfg.get("whisper_model", "small")
 
 NOME_MESTRE              = cfg.get("nome_mestre", "Chefe")
-voz_atual                = cfg.get("voz", "pt-BR-AntonioNeural")
+voz_atual                = cfg.get("voz_atual", cfg.get("voz", "pt-BR-AntonioNeural"))
 DEVICE_INDEX             = cfg.get("device_index", 1)
 tema_ativo               = cfg.get("tema_ativo", "MIDNIGHT_MINIMAL")
 notas                    = cfg.get("notas", "")

@@ -22,7 +22,7 @@ class SyncReport:
     def ok(self) -> bool:
         return not self.errors
 
-    def __str__(self) -> str:
+    def __str__(self):
         parts = []
         if self.applied:
             parts.append(f"aplicados={list(self.applied)}")
@@ -48,7 +48,7 @@ def coerce_bool(raw: Any) -> bool:
             return False
     raise ValueError(f"Não é possível converter {raw!r} para bool")
 
-def coerce_str(raw: Any, min_len: int = 1, max_len: int = 256) -> str:
+def coerce_str(raw: Any, min_len: int = 1, max_len: int = 256):
     v = str(raw).strip()
     if len(v) < min_len:
         raise ValueError(f"Mínimo {min_len} caractere(s), recebeu {len(v)}")
@@ -136,7 +136,7 @@ def ler_valor_na_memoria(memory: dict, path: tuple[str, ...]) -> tuple[bool, Any
 
     return True, node
 
-def sincronizar_um_campo(spec: FieldSpec, memory: dict, report: SyncReport) -> None:
+def sincronizar_um_campo(spec: FieldSpec, memory: dict, report: SyncReport):
     attr = spec.config_attr
     found, raw = ler_valor_na_memoria(memory, spec.mem_path)
 

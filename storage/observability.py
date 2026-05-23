@@ -51,7 +51,7 @@ def registrar_acao(
     duracao_ms: int = 0,
     sucesso: bool = True,
     dados: dict | None = None,
-) -> None:
+):
     try:
         with conectar_banco() as c:
             c.execute(
@@ -71,7 +71,7 @@ def registrar_acao(
     except Exception as exc:
         log.debug("obs registrar_acao: %s", exc)
 
-def registrar_metrica(nome: str, valor: float, unidade: str = "") -> None:
+def registrar_metrica(nome: str, valor: float, unidade: str = ""):
     try:
         with conectar_banco() as c:
             c.execute(
@@ -84,7 +84,7 @@ def registrar_metrica(nome: str, valor: float, unidade: str = "") -> None:
 
 class Temporizador:
 
-    def __init__(self, tipo: str, modulo: str = "", dados: dict | None = None) -> None:
+    def __init__(self, tipo: str, modulo: str = "", dados: dict | None = None):
         self._tipo    = tipo
         self._modulo  = modulo
         self._dados   = dados or {}
@@ -94,7 +94,7 @@ class Temporizador:
         self._inicio = time.time()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, exc_type, exc_val, exc_tb):
         duracao_ms = int((time.time() - self._inicio) * 1000)
         sucesso    = exc_type is None
         registrar_acao(

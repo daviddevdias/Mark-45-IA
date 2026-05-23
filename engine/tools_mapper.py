@@ -38,16 +38,16 @@ def executar_no_loop_atual(coro) -> Any:
     return fut.result(timeout=30)
 
 
-def gerenciador_open_app(argumentos: dict) -> str:
+def gerenciador_open_app(argumentos: dict):
     app_name = argumentos.get("app_name", "o aplicativo solicitado")
     open_app(argumentos)
     return f"Inicializando {app_name} imediatamente, Senhor."
 
-def gerenciador_computador(argumentos: dict) -> str:
+def gerenciador_computador(argumentos: dict):
     computer_settings(argumentos)
     return "Configurações de hardware e parâmetros do sistema atualizados, Senhor."
 
-def gerenciador_cmd(argumentos: dict) -> str:
+def gerenciador_cmd(argumentos: dict):
     comando = argumentos.get("command", "").strip()
     tarefa = argumentos.get("task", "").strip()
     if not comando and tarefa:
@@ -68,7 +68,7 @@ def gerenciador_cmd(argumentos: dict) -> str:
     saida = executar(comando, timeout=20, ferramenta="cmd_control")
     return f"Comando '{comando}' executado. Saída: {saida}"
 
-def gerenciador_web_search(argumentos: dict) -> str:
+def gerenciador_web_search(argumentos: dict):
     query = argumentos.get("query", "").strip()
     if query:
         url = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
@@ -76,7 +76,7 @@ def gerenciador_web_search(argumentos: dict) -> str:
         return f"Varredura de rede iniciada. Resultados para '{query}' projetados no navegador, Senhor."
     return "A busca web falhou. Termo de pesquisa inválido ou nulo."
 
-def gerenciador_browser(argumentos: dict) -> str:
+def gerenciador_browser(argumentos: dict):
     acao = argumentos.get("action", "open").lower()
     url = argumentos.get("url", "").strip()
     query = argumentos.get("query", "").strip()
@@ -92,7 +92,7 @@ def gerenciador_browser(argumentos: dict) -> str:
         return f"Direcionando requisição para {url}."
     return "A diretiva do navegador foi processada, mas nenhum parâmetro válido foi extraído."
 
-def gerenciador_youtube(argumentos: dict) -> str:
+def gerenciador_youtube(argumentos: dict):
     query = argumentos.get("query", "").strip()
     if query:
         url = f"https://www.youtube.com/results?search_query={urllib.parse.quote(query)}"
@@ -102,7 +102,7 @@ def gerenciador_youtube(argumentos: dict) -> str:
         webbrowser.open("https://www.youtube.com")
         return "Acessando interface principal da plataforma YouTube, Senhor."
 
-def gerenciador_spotify(argumentos: dict) -> str:
+def gerenciador_spotify(argumentos: dict):
     acao = argumentos.get("action", "").lower()
     if argumentos.get("playlist_name"):
         spotify_stark.listar_e_tocar_playlist(argumentos["playlist_name"])
@@ -113,7 +113,7 @@ def gerenciador_spotify(argumentos: dict) -> str:
     spotify_stark.controlar_reproducao(acao or "playpause")
     return "Frequências sonoras e reprodutor controlados de acordo com os protocolos, Senhor."
 
-def gerenciador_clima(argumentos: dict) -> str:
+def gerenciador_clima(argumentos: dict):
     cidade = argumentos.get("city", "")
     previsao = argumentos.get("forecast", "hoje").lower()
     if previsao == "amanha":
@@ -122,7 +122,7 @@ def gerenciador_clima(argumentos: dict) -> str:
     res = obter_previsao_hoje(cidade)
     return f"Dados meteorológicos de hoje atualizados em tempo real, Senhor: {res if res else 'Falha na telemetria local.'}"
 
-def gerenciador_alarme(argumentos: dict) -> str:
+def gerenciador_alarme(argumentos: dict):
     operacao = argumentos.get("op", "add").lower()
     if operacao == "list":
         itens = listar_alarmes()
@@ -145,7 +145,7 @@ def gerenciador_alarme(argumentos: dict) -> str:
     adicionar_alarme(hora, missao, data=data_alarme)
     return f"Alarme configurado com sucesso. Notificação agendada para às {hora} para a tarefa: {missao}."
 
-def gerenciador_casa_inteligente(argumentos: dict) -> str:
+def gerenciador_casa_inteligente(argumentos: dict):
     from tasks.smart_home import (abrir_youtube_tv, buscar_id_tv, energia_tv, diagnosticar_falha_tv, status_tv)
     dispositivo = argumentos.get("device", "").lower()
     acao = argumentos.get("action", "").lower()
@@ -166,7 +166,7 @@ def gerenciador_casa_inteligente(argumentos: dict) -> str:
             return f"Telemetria da interface doméstica: {status_tv()}"
     return "Comando de automação residencial recebido. Subsistema focado apenas nos módulos de TV no momento."
 
-def gerenciador_arquivos(argumentos: dict) -> str:
+def gerenciador_arquivos(argumentos: dict):
     acao = argumentos.get("action", "")
     caminho = argumentos.get("path", "")
     nome = argumentos.get("name", "")
@@ -212,7 +212,7 @@ def gerenciador_arquivos(argumentos: dict) -> str:
         return f"Erro no gerenciador de arquivos: {e}"
 
 
-def gerenciador_memoria(argumentos: dict) -> str:
+def gerenciador_memoria(argumentos: dict):
     categoria = argumentos.get("category")
     chave = argumentos.get("key")
     valor = argumentos.get("value")
@@ -223,7 +223,7 @@ def gerenciador_memoria(argumentos: dict) -> str:
     sucesso = isinstance(resultado, dict)
     return f"Dados gravados com sucesso na minha memória de longo prazo. Setor: {categoria}." if sucesso else "Falha crítica ao persistir dados na estrutura de memória interna."
 
-def gerenciador_plano(argumentos: dict) -> str:
+def gerenciador_plano(argumentos: dict):
     from engine.ia_router import router
     objetivo = argumentos.get("goal", "").strip()
     contexto = argumentos.get("context", "")
@@ -234,7 +234,7 @@ def gerenciador_plano(argumentos: dict) -> str:
     resultado = executar_no_loop_atual(coro)
     return resultado or f"Matriz de planejamento tático calculada para o objetivo: '{objetivo}'. Pronto para execução, Senhor."
 
-def gerenciador_codigo(argumentos: dict) -> str:
+def gerenciador_codigo(argumentos: dict):
     from engine.ia_router import router
     descricao = argumentos.get("description", "")
     linguagem = argumentos.get("language", "python")
@@ -265,19 +265,19 @@ def gerenciador_codigo(argumentos: dict) -> str:
         
     return codigo_gerado if codigo_gerado else "O compilador de inteligência artificial falhou ao estruturar a lógica."
 
-def gerenciador_visao(argumentos: dict) -> str:
+def gerenciador_visao(argumentos: dict):
     from vision.capture import analisar_tela
     pergunta = argumentos.get("question", "Analisa e descreve o que está na tela agora.")
     executar_no_loop_atual(analisar_tela(pergunta))
     return "Sensores ópticos ativados. Varredura completa da tela realizada com sucesso, Senhor."
 
-def gerenciador_troca_ia(argumentos: dict) -> str:
+def gerenciador_troca_ia(argumentos: dict):
     from engine.ia_router import router
     modo = argumentos.get("mode", "ollama").lower()
     router.definir_modo(modo)
     return f"Redirecionando sinapses neurais. Motores cognitivos alternados para o modo {modo}, Senhor."
 
-def gerenciador_agente_visual(argumentos: dict) -> str:
+def gerenciador_agente_visual(argumentos: dict):
     tarefa = argumentos.get("task", "")
     if not tarefa:
         return "Nenhuma instrução operacional foi passada para o atuador de interface gráfica."
@@ -297,7 +297,7 @@ def gerenciador_agente_visual(argumentos: dict) -> str:
     except Exception as e:
         return f"Erro crítico na camada de abstração de UI: {e}"
 
-def gerenciador_visao_3d(argumentos: dict) -> str:
+def gerenciador_visao_3d(argumentos: dict):
     try:
         from vision.capture import MotorVisaoEspacial
         import cv2
@@ -315,11 +315,11 @@ def gerenciador_visao_3d(argumentos: dict) -> str:
     except Exception as e:
         return f"O subsistema de fotogrametria e análise volumétrica falhou: {e}"
 
-def gerenciador_traducao_audio(argumentos: dict) -> str:
+def gerenciador_traducao_audio(argumentos: dict):
     segundos = argumentos.get("segundos", 10)
     return f"Captando frequências sonoras do ambiente por {segundos} segundos para tradução simultânea em tempo real. Módulos em calibração, Senhor."
 
-def gerenciador_otimizacao_dados(argumentos: dict) -> str:
+def gerenciador_otimizacao_dados(argumentos: dict):
     try:
         from storage.optimizer import comprimir_banco_auditoria
         executar_no_loop_atual(comprimir_banco_auditoria())
@@ -351,7 +351,7 @@ EXECUTOR_FERRAMENTAS: dict[str, Callable[[dict], str]] = {
     "otimizar_banco_dados":     gerenciador_otimizacao_dados,
 }
 
-async def despachar(nome: str, args: dict) -> str:
+async def despachar(nome: str, args: dict):
     func = EXECUTOR_FERRAMENTAS.get(nome)
     
     if func is None:
