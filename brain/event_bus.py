@@ -51,7 +51,7 @@ class EventBus:
 
     def publicar(self, tipo: str, dados: dict | None = None, origem: str = ""):
         ev = Evento(tipo=tipo, dados=dados or {}, origem=origem)
-        self._guardar(ev)
+        self.guardar(ev)
         for handler in list(self.listeners.get(tipo, [])):
             try:
                 result = handler(ev)
@@ -64,7 +64,7 @@ class EventBus:
         self, tipo: str, dados: dict | None = None, origem: str = ""
     ):
         ev = Evento(tipo=tipo, dados=dados or {}, origem=origem)
-        self._guardar(ev)
+        self.guardar(ev)
         for handler in list(self.listeners.get(tipo, [])):
             try:
                 result = handler(ev)
@@ -73,7 +73,7 @@ class EventBus:
             except Exception as exc:
                 log.error("Handler async falhou: %s", exc)
 
-    def _guardar(self, ev: Evento):
+    def guardar(self, ev: Evento):
         self.historico.append(ev)
         if len(self.historico) > self.max_hist:
             self.historico = self.historico[-self.max_hist :]

@@ -7,9 +7,9 @@
 }
 
 :root {
-  --bg: #0a0a0c;
-  --bg2: #111116;
-  --bg3: #18181f;
+  --bg: #000000;
+  --bg2: #080808;
+  --bg3: #0f0f0f;
   --border: #2a2a36;
   --accent: #5b8dee;
   --accent2: #3ecf8e;
@@ -230,9 +230,7 @@ body {
   color: var(--muted);
 }
 
-.sb-lbl {
-  width: 28px;
-}
+
 
 .bar-wrap {
   flex: 1;
@@ -793,7 +791,8 @@ body {
 }
 
 .cfg-hdr {
-  font-size: 9px;
+  font-size: 12px;
+  font-weight: bold;
   color: var(--muted);
   letter-spacing: 0.2em;
   border-bottom: 1px solid var(--border);
@@ -807,7 +806,8 @@ body {
 }
 
 .cfg-field label {
-  font-size: 9px;
+  font-size: 14px;
+  font-weight: bold;
   color: var(--muted);
   letter-spacing: 0.1em;
 }
@@ -816,6 +816,12 @@ body {
   display: flex;
   gap: 6px;
   align-items: center;
+}
+
+field-row-inline placeholder {
+  font-size: 11px;
+  font-weight: bold;
+  font-family: "Roboto", sans-serif;
 }
 
 .ia-btns {
@@ -864,4 +870,40 @@ body {
 
 #toast.show {
   opacity: 1;
+}
+
+/* ── BIBLIOTECA ─────────────────────────── */
+.lib-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.lib-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.lib-card:hover {
+  border-color: var(--accent);
+  background: var(--bg3);
+  transform: translateY(-1px);
+}
+
+.lib-label {
+  font-size: 11px;
+  font-weight: bold;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+}
+
+.lib-exemplo {
+  font-size: 9px;
+  color: var(--muted);
+  margin-top: 3px;
 }

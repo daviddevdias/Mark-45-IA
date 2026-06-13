@@ -2,17 +2,20 @@ import asyncio, os, queue, threading, time, re, tempfile
 import edge_tts, pygame, speech_recognition as sr
 import sounddevice as sd
 import scipy.io.wavfile as wav
-import numpy as np
 import config
 
-audio_io_lock, mic_lock = threading.RLock(), threading.Lock()
-mic_cmd, mic_rpy = queue.Queue(), queue.Queue()
-falando, interrompido = False, False
+audio_io_lock = threading.RLock()
+mic_lock = threading.Lock()
+mic_cmd: queue.Queue = queue.Queue()
+mic_rpy: queue.Queue = queue.Queue()
+falando = False
+interrompido = False
 barge_stop_event = threading.Event()
-barge_thread, mic_thread = None, None
+barge_thread: threading.Thread | None = None
+mic_thread: threading.Thread | None = None
 
 
-def criar_reconhecedor():
+def criar_reconhecedor() -> sr.Recognizer:
     r = sr.Recognizer()
     r.pause_threshold = 0.3
     r.non_speaking_duration = 0.1
@@ -23,13 +26,11 @@ def criar_reconhecedor():
 reconhecedor = criar_reconhecedor()
 
 
-def limpar_texto(t):
-    return re.sub(
-        r"\s+", " ", re.sub(r"[^\w\s]", " ", (t or "").lower().strip())
-    ).strip()
+def limpar_texto(t: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"[^\w\s]", " ", (t or "").lower().strip())).strip()
 
 
-def reproduzir_sync(arquivo):
+def reproduzir_sync(arquivo: str):
     global falando, interrompido
     with audio_io_lock:
         if not pygame.mixer.get_init():
@@ -51,7 +52,7 @@ def reproduzir_sync(arquivo):
         pass
 
 
-async def falar(texto):
+async def falar(texto: str):
     if not texto.strip():
         return
     arquivo = os.path.join(config.ASSETS_DIR, "output.mp3")
@@ -65,7 +66,7 @@ async def falar(texto):
         print(f"Erro fala: {e}")
 
 
-def capturar_audio():
+def capturar_audio() -> str:
     fs = 16000
     print("[Status]: Escutando...")
     try:
@@ -96,9 +97,7 @@ def barge_loop():
             wav.write(tmp_path, 16000, audio)
             with sr.AudioFile(tmp_path) as source:
                 txt = limpar_texto(
-                    reconhecedor.recognize_google(
-                        reconhecedor.record(source), language="pt-BR"
-                    )
+                    reconhecedor.recognize_google(reconhecedor.record(source), language="pt-BR")
                 )
             os.remove(tmp_path)
             if txt:
@@ -136,7 +135,7 @@ def ensure_mic_thread():
         mic_thread.start()
 
 
-async def ouvir_comando():
+async def ouvir_comando() -> str:
     ensure_mic_thread()
     mic_cmd.put(True)
     return await asyncio.get_running_loop().run_in_executor(None, mic_rpy.get)

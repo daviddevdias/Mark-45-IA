@@ -243,8 +243,6 @@ class JarvisBridge(QObject):
                 "spotify_id": getattr(config, "SPOTIFY_ID", ""),
                 "spotify_sec": getattr(config, "SPOTIFY_SECRET", ""),
                 "smartthings": getattr(config, "SMARTTHINGS_TOKEN", ""),
-                "smartthings_tv_id": getattr(config, "SMARTTHINGS_TV_DEVICE_ID", ""),
-                "deepgram_api_key": getattr(config, "DEEPGRAM_API_KEY", ""),
                 "whisper_model": getattr(config, "WHISPER_MODEL", "small"),
                 "nome_mestre": getattr(config, "NOME_MESTRE", "Chefe"),
                 "voz": getattr(config, "voz_atual", "pt-BR-AntonioNeural"),

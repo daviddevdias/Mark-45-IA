@@ -388,7 +388,6 @@ class JarvisUI(QWidget):
         self.is_muted = False
         self.is_scanning = True
         self.posicao_arrasto = None
-        self.painel_referencia = None
         self._opacidade = 1.0
 
         # dados do HUD (atualizados dinamicamente)
@@ -434,13 +433,16 @@ class JarvisUI(QWidget):
     # gerenciamento de janela
 
     def _aplicar_flags_janela(self):
-        base = Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool
-        camada = (
-            Qt.WindowType.WindowStaysOnTopHint
-            if self._fixado_no_topo
-            else Qt.WindowType.WindowStaysOnBottomHint
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.Tool
+            | Qt.WindowType.WindowStaysOnBottomHint
         )
-        self.setWindowFlags(base | camada)
+
+        self.setAttribute(
+            Qt.WidgetAttribute.WA_TransparentForMouseEvents,
+            False
+        )
 
     def centralizar_janela(self):
         screen = QApplication.primaryScreen().geometry()
@@ -663,7 +665,6 @@ class JarvisUI(QWidget):
         self.btn_off.setToolTip("Encerrar sistema")
 
         self.btn_mute.clicked.connect(self.alternar_microfone)
-        self.btn_code.clicked.connect(self.abrir_painel_principal)
         self.btn_off.clicked.connect(QApplication.quit)
 
         for btn in (self.btn_mute, self.btn_code, self.btn_off):
@@ -724,21 +725,6 @@ class JarvisUI(QWidget):
             self.btn_mute.setIcon(svg_para_icone(svg_mic_on(), 28))
             self.btn_mute.setStyleSheet(qss_botao_accent(self._raw))
             print("[SISTEMA] Microfone ATIVO")
-
-    def abrir_painel_principal(self):
-        if self.painel_referencia is not None and self.painel_referencia.isVisible():
-            self.painel_referencia.raise_()
-            self.painel_referencia.activateWindow()
-            return
-        try:
-            from painel import PainelCore
-
-            self.painel_referencia = PainelCore()
-            self.painel_referencia.show()
-        except Exception as e:
-            print(f"[SISTEMA] Falha ao abrir painel: {e}")
-
-    # loop de animação
 
     def atualizar_animacao(self):
         try:

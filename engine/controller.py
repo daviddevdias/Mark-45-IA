@@ -13,14 +13,18 @@ from vision.capture import (
 
 log = logging.getLogger("engine.controller")
 
-URL_LOCAL_CHAT = "http://127.0.0.1:1234/v1/chat/completions"
-URL_LOCAL_MODELS = "http://127.0.0.1:1234/v1/models"
+URL_CHAT = "http://127.0.0.1:1234/v1/chat/completions"
+URL_MODELS = "http://127.0.0.1:1234/v1/models"
 TIMEOUT, MAX_HIST, MAX_TOOLS, COOLDOWN = 60.0, 20, 5, 30.0
 
-SYSTEM = """Você é J.A.R.V.I.S. — assistente pessoal do David. Direto, técnico e sem condescendência. Responda em PT-BR.\nEstado Atual: {estado}\nContexto: {ctx}"""
+SYSTEM = (
+    "Você é J.A.R.V.I.S. — assistente pessoal do David. "
+    "Direto, técnico e sem condescendência. Responda em PT-BR.\n"
+    "Estado Atual: {estado}\nContexto: {ctx}"
+)
 
 modelo, disponivel, ultimo_check = "", False, 0.0
-_SHUTDOWN_EVENT = None
+shutdown_event: asyncio.Event | None = None
 
 PREFIXOS_SPOTIFY = [
     "buscar no spotify",
@@ -38,14 +42,14 @@ Handler = Callable[[str], Awaitable[Optional[str]]]
 ROUTES: list[tuple[tuple[str, ...], Handler]] = []
 
 
-def system_msg(ctx: str, estado: str = ""):
+def system_msg(ctx: str, estado: str = "") -> str:
     return SYSTEM.format(
         ctx=f"{ctx} | {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"[:400],
         estado=estado or "Nenhum",
     )
 
 
-def normalizar(texto: str):
+def normalizar(texto: str) -> str:
     t = re.sub(r"\s+", " ", texto.lower().strip())
     for src, dst in {
         "ã": "a",
@@ -70,7 +74,7 @@ def extrair_numero(texto: str) -> Optional[int]:
     return int(m.group()) if m else None
 
 
-def extrair_termo(cmd: str, prefixos: list):
+def extrair_termo(cmd: str, prefixos: list) -> str:
     texto = cmd.strip()
     for p in sorted(prefixos, key=len, reverse=True):
         if texto.startswith(p):
@@ -80,21 +84,21 @@ def extrair_termo(cmd: str, prefixos: list):
 
 
 def get_shutdown_event() -> asyncio.Event:
-    global _SHUTDOWN_EVENT
-    if _SHUTDOWN_EVENT is None:
-        _SHUTDOWN_EVENT = asyncio.Event()
-    return _SHUTDOWN_EVENT
+    global shutdown_event
+    if shutdown_event is None:
+        shutdown_event = asyncio.Event()
+    return shutdown_event
 
 
 async def detectar_modelo() -> bool:
     global modelo, disponivel, ultimo_check
     try:
         async with aiohttp.ClientSession() as s:
-            async with s.get(URL_LOCAL_MODELS, timeout=5) as r:
+            async with s.get(URL_MODELS, timeout=5) as r:
                 if r.status != 200:
                     return False
-                resposta = await r.json()
-                modelos = [m.get("id") for m in resposta.get("data", [])]
+                data = await r.json()
+                modelos = [m.get("id") for m in data.get("data", [])]
                 if not modelos:
                     return False
                 modelo, disponivel, ultimo_check = modelos[0], True, time.time()
@@ -110,7 +114,7 @@ async def check(force: bool = False):
 
 
 def ligar_monitor(intervalo_s: float = 10.0, callback=None):
-    from vision.capture import iniciar_monitor as iniciar_mon, MonitorConfig
+    from vision.capture import iniciar_monitor, MonitorConfig
 
     cfg = MonitorConfig(intervalo_s=intervalo_s, callback=callback)
     try:
@@ -118,9 +122,9 @@ def ligar_monitor(intervalo_s: float = 10.0, callback=None):
     except RuntimeError:
         loop = None
     if loop and loop.is_running():
-        asyncio.run_coroutine_threadsafe(iniciar_mon(cfg), loop)
+        asyncio.run_coroutine_threadsafe(iniciar_monitor(cfg), loop)
     else:
-        asyncio.run(iniciar_mon(cfg))
+        asyncio.run(iniciar_monitor(cfg))
 
 
 class Historico:
@@ -144,40 +148,39 @@ class Historico:
 
 class IARRouter:
     def __init__(self):
-        self.historico, self.provedor, self._humor, self._acoes_sessao, self._turno = (
-            Historico(),
-            "lmstudio",
-            "neutro",
-            [],
-            0,
-        )
+        self.historico = Historico()
+        self.provedor = "lmstudio"
+        self.humor = "neutro"
+        self.acoes_sessao: list[str] = []
+        self.turno = 0
 
-    def _registrar_acao(self, nome: str):
-        self._acoes_sessao.append(nome)
-        if len(self._acoes_sessao) > 20:
-            self._acoes_sessao = self._acoes_sessao[-20:]
+    def registrar_acao(self, nome: str):
+        self.acoes_sessao.append(nome)
+        if len(self.acoes_sessao) > 20:
+            self.acoes_sessao = self.acoes_sessao[-20:]
 
-    def _atualizar_humor(self, texto: str):
+    def atualizar_humor(self, texto: str):
         t = texto.lower()
         if any(w in t for w in ("cansado", "exausto", "travado")):
-            self._humor = "preocupado"
+            self.humor = "preocupado"
         elif any(w in t for w in ("consegui", "perfeito", "ótimo")):
-            self._humor = "animado"
+            self.humor = "animado"
         else:
-            self._humor = "neutro"
+            self.humor = "neutro"
 
-    def _montar_estado(self) -> str:
-        return f"Humor: {self._humor}. Turno: {self._turno}. Ações: {', '.join(self._acoes_sessao[-5:]) if self._acoes_sessao else 'nenhuma'}."
+    def montar_estado(self) -> str:
+        acoes = ", ".join(self.acoes_sessao[-5:]) if self.acoes_sessao else "nenhuma"
+        return f"Humor: {self.humor}. Turno: {self.turno}. Ações: {acoes}."
 
     @property
     def status(self) -> dict:
         return {"modelo": modelo, "servidor": disponivel, "provedor": self.provedor}
 
     @property
-    def modo_atual(self):
+    def modo_atual(self) -> str:
         return self.provedor
 
-    def definir_modo(self, modo: str):
+    def definir_modo(self, modo: str) -> str:
         if modo == "gemini":
             if not config.GEMINI_API_KEY:
                 return "Chave Gemini ausente."
@@ -191,7 +194,7 @@ class IARRouter:
         self.provedor = "lmstudio"
         return f"LM Studio ativado. Modelo: {modelo}."
 
-    def resetar_conversa(self):
+    def resetar_conversa(self) -> str:
         self.historico.clear()
         return "Conversa resetada."
 
@@ -216,19 +219,21 @@ class IARRouter:
                 if self.provedor == "gemini"
                 else "https://openrouter.ai/api/v1/chat/completions"
             )
+            chave = (
+                config.GEMINI_API_KEY
+                if self.provedor == "gemini"
+                else config.QWEN_API_KEY
+            )
             hdrs = {
-                "Authorization": f"Bearer {config.GEMINI_API_KEY if self.provedor == 'gemini' else config.QWEN_API_KEY}",
+                "Authorization": f"Bearer {chave}",
                 "Content-Type": "application/json",
             }
-            payload = {
-                "model": (
-                    "gemini-1.5-flash"
-                    if self.provedor == "gemini"
-                    else config.CURRENT_MODEL
-                ),
-                "messages": messages,
-                "temperature": 0.3,
-            }
+            mdl = (
+                "gemini-1.5-flash"
+                if self.provedor == "gemini"
+                else config.CURRENT_MODEL
+            )
+            payload = {"model": mdl, "messages": messages, "temperature": 0.3}
             if tools:
                 payload["tools"] = TOOL_DECLARATIONS
             try:
@@ -256,13 +261,13 @@ class IARRouter:
             payload["tools"] = TOOL_DECLARATIONS
         try:
             async with aiohttp.ClientSession() as s:
-                async with s.post(URL_LOCAL_CHAT, json=payload, timeout=TIMEOUT) as r:
+                async with s.post(URL_CHAT, json=payload, timeout=TIMEOUT) as r:
                     if r.status == 200:
                         return (await r.json()).get("choices", [{}])[0].get("message")
         except:
             return None
 
-    async def dispatch(self, name: str, args: dict):
+    async def dispatch(self, name: str, args: dict) -> str:
         try:
             from engine.tools_mapper import despachar
 
@@ -272,7 +277,7 @@ class IARRouter:
 
     async def responder(
         self, pergunta: str, nome: str = "Chefe", memoria: str = "", imagem: Any = None
-    ):
+    ) -> str:
         if self.provedor == "lmstudio":
             await check()
             if not disponivel:
@@ -282,11 +287,11 @@ class IARRouter:
             if not modelo:
                 return "Nenhum modelo carregado."
 
-        self._turno += 1
-        self._atualizar_humor(pergunta)
+        self.turno += 1
+        self.atualizar_humor(pergunta)
         self.historico.add("user", self.montar_content(pergunta, imagem))
         msgs = [
-            {"role": "system", "content": system_msg(memoria, self._montar_estado())}
+            {"role": "system", "content": system_msg(memoria, self.montar_estado())}
         ] + self.historico.msgs()
 
         for _ in range(MAX_TOOLS):
@@ -302,11 +307,12 @@ class IARRouter:
                 return reply
 
             for tc in tool_calls:
-                call_id, fn = tc.get("id", "call_0"), tc.get("function", {})
+                call_id = tc.get("id", "call_0")
+                fn = tc.get("function", {})
                 raw = fn.get("arguments", {})
                 args = json.loads(raw) if isinstance(raw, str) else (raw or {})
                 nome_fn = fn.get("name", "")
-                self._registrar_acao(nome_fn)
+                self.registrar_acao(nome_fn)
                 result = await self.dispatch(nome_fn, args)
                 msgs.append(
                     {
@@ -317,13 +323,14 @@ class IARRouter:
                     }
                 )
                 self.historico.add_tool(call_id, nome_fn, result)
+
         return "Protocolo concluído."
 
 
 router = IARRouter()
 
 
-async def abrir_web_direto(cmd: str):
+async def abrir_web_direto(cmd: str) -> str:
     from engine.tools_mapper import gerenciador_browser
 
     c = cmd.lower()
@@ -334,56 +341,56 @@ async def abrir_web_direto(cmd: str):
     return "Comando web processado."
 
 
-async def youtube_busca(cmd: str):
+async def youtube_busca(cmd: str) -> str:
     from engine.tools_mapper import gerenciador_youtube
 
     termo = extrair_termo(cmd, PREFIXOS_YOUTUBE)
     return gerenciador_youtube({"query": termo} if termo else {})
 
 
-async def silencio(cmd: str):
+async def silencio(cmd: str) -> str:
     from tasks.computer_control import mutar_volume
 
     mutar_volume()
     return "Áudio silenciado."
 
 
-async def bloquear(cmd: str):
+async def bloquear(cmd: str) -> str:
     from tasks.computer_control import bloquear_tela
 
     bloquear_tela()
     return "Tela bloqueada."
 
 
-async def minimizar(cmd: str):
+async def minimizar(cmd: str) -> str:
     from tasks.computer_control import minimizar_janelas
 
     minimizar_janelas()
     return "Minimizado."
 
 
-async def fechar(cmd: str):
+async def fechar(cmd: str) -> str:
     from tasks.computer_control import fechar_janela_ativa
 
     fechar_janela_ativa()
     return "Encerrado."
 
 
-async def screenshot(cmd: str):
+async def screenshot(cmd: str) -> str:
     from tasks.computer_control import print_tela
 
     print_tela()
     return "Captura realizada."
 
 
-async def limpar_lixo(cmd: str):
+async def limpar_lixo(cmd: str) -> str:
     from tasks.computer_control import limpar_lixeira
 
     limpar_lixeira()
     return "Lixeira limpa."
 
 
-async def trabalho(cmd: str):
+async def trabalho(cmd: str) -> str:
     from tasks.open_app import open_app
 
     open_app({"app_name": "vscode"})
@@ -391,7 +398,7 @@ async def trabalho(cmd: str):
     return "Ambiente dev iniciado."
 
 
-async def modo_sono(cmd: str):
+async def modo_sono(cmd: str) -> str:
     from tasks.computer_control import bloquear_tela, mutar_volume
     from tasks.smart_home import desligar_tv
     from tasks.spotify_manager import spotify_stark
@@ -403,7 +410,7 @@ async def modo_sono(cmd: str):
     return "Modo sono ativo."
 
 
-async def tv_ligar(cmd: str):
+async def tv_ligar(cmd: str) -> str:
     from tasks.smart_home import energia_tv, buscar_id_tv, diagnosticar_falha_tv
 
     if energia_tv(True):
@@ -411,7 +418,7 @@ async def tv_ligar(cmd: str):
     return "TV não respondeu." if buscar_id_tv() else diagnosticar_falha_tv()
 
 
-async def tv_desligar(cmd: str):
+async def tv_desligar(cmd: str) -> str:
     from tasks.smart_home import desligar_tv, buscar_id_tv, diagnosticar_falha_tv
 
     if desligar_tv():
@@ -419,7 +426,7 @@ async def tv_desligar(cmd: str):
     return "Falha ao desligar TV." if buscar_id_tv() else diagnosticar_falha_tv()
 
 
-async def tv_volume(cmd: str):
+async def tv_volume(cmd: str) -> str:
     from tasks.smart_home import enviar_comando_tv
 
     nivel = extrair_numero(cmd)
@@ -430,20 +437,20 @@ async def tv_volume(cmd: str):
     return "Falha no volume da TV."
 
 
-async def tv_youtube(cmd: str):
+async def tv_youtube(cmd: str) -> str:
     from tasks.smart_home import abrir_youtube_tv
 
     return abrir_youtube_tv()
 
 
-async def musica(cmd: str):
+async def musica(cmd: str) -> str:
     from tasks.spotify_manager import spotify_stark
 
     t = extrair_termo(re.sub(r"\bspotify\b", "", cmd).strip(), PREFIXOS_SPOTIFY)
     return spotify_stark.abrir_e_buscar(t) if t else "Qual música?"
 
 
-async def playlist(cmd: str):
+async def playlist(cmd: str) -> str:
     from tasks.spotify_manager import spotify_stark
 
     return spotify_stark.listar_e_tocar_playlist(
@@ -451,65 +458,65 @@ async def playlist(cmd: str):
     )
 
 
-async def favoritas(cmd: str):
+async def favoritas(cmd: str) -> str:
     from tasks.spotify_manager import spotify_stark
 
     return spotify_stark.tocar_minhas_favoritas()
 
 
-async def pausar(cmd: str):
+async def pausar(cmd: str) -> str:
     from tasks.spotify_manager import spotify_stark
 
     return spotify_stark.controlar_reproducao("pause")
 
 
-async def continuar(cmd: str):
+async def continuar(cmd: str) -> str:
     from tasks.spotify_manager import spotify_stark
 
     return spotify_stark.controlar_reproducao("play")
 
 
-async def proxima(cmd: str):
+async def proxima(cmd: str) -> str:
     from tasks.spotify_manager import spotify_stark
 
     return spotify_stark.controlar_reproducao("proxima")
 
 
-async def anterior(cmd: str):
+async def anterior(cmd: str) -> str:
     from tasks.spotify_manager import spotify_stark
 
     return spotify_stark.controlar_reproducao("anterior")
 
 
-async def monitorar(cmd: str):
+async def monitorar(cmd: str) -> str:
     from engine.core import ligar_monitoramento
 
     await ligar_monitoramento(cmd)
     return "Monitoramento ativado."
 
 
-async def parar_monitor_cmd(cmd: str):
+async def parar_monitor_cmd(cmd: str) -> str:
     from engine.core import desligar_monitoramento
 
     await desligar_monitoramento()
     return "Monitoramento cessado."
 
 
-async def status_monitor_cmd(cmd: str):
+async def status_monitor_cmd(cmd: str) -> str:
     from engine.core import status_do_sistema
 
     await status_do_sistema()
     return "Status reportado."
 
 
-async def olha_tela(cmd: str):
+async def olha_tela(cmd: str) -> str:
     from engine.core import analisar_tela_agora
 
     await analisar_tela_agora()
     return "Análise concluída."
 
 
-async def olha_camera(cmd: str):
+async def olha_camera(cmd: str) -> str:
     try:
         from engine.core import analisar_camera_agora
 
@@ -519,7 +526,7 @@ async def olha_camera(cmd: str):
     return "Análise de câmera concluída."
 
 
-async def alarme(cmd: str):
+async def alarme(cmd: str) -> str:
     from tasks.alarm import parse_alarme_voz, adicionar_alarme
 
     data_iso, hora, missao, _ = parse_alarme_voz(cmd)
@@ -535,7 +542,7 @@ async def alarme(cmd: str):
     return adicionar_alarme(hora, missao or "Alarme agendado", data=data_iso)
 
 
-async def parar_alarme(cmd: str):
+async def parar_alarme(cmd: str) -> str:
     from tasks.spotify_manager import spotify_stark
     from tasks.alarm import parar_alarme_total
 
@@ -607,7 +614,7 @@ PREFIXO_MAP = {
 }
 
 
-def expandir(cmd: str):
+def expandir(cmd: str) -> str:
     return " ".join(PREFIXO_MAP.get(tok, tok) for tok in cmd.split())
 
 

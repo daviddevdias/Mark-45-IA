@@ -1,10 +1,15 @@
-<!doctype html>
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>J.A.R.V.I.S ◈ MARK XXVIII</title>
     <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -18,455 +23,438 @@
       </div>
       <ul id="nav">
         <li class="nav-item active" data-s="chat" onclick="goTo('chat')">
-          <span>◇</span> CHAT
+          CHAT
         </li>
         <li class="nav-item" data-s="alarms" onclick="goTo('alarms')">
-          <span>⏰</span> ALARMES
+          ALARMES
         </li>
         <li class="nav-item" data-s="weather" onclick="goTo('weather')">
-          <span>◆</span> CLIMA
+          CLIMA
         </li>
         <li class="nav-item" data-s="status" onclick="goTo('status')">
-          <span>▣</span> STATUS
+          STATUS
         </li>
         <li class="nav-item" data-s="config" onclick="goTo('config')">
-          <span>⚙</span> CONFIG
+          CONFIG
+        </li>
+        <li class="nav-item" data-s="library" onclick="goTo('library')">
+          BIBLIOTECA
         </li>
       </ul>
       <div id="sidebar-bottom">
         <div id="wave" class="hidden">
-          <span></span><span></span><span></span><span></span><span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
         </div>
         <div id="ia-badge">
           <div id="ia-dot"></div>
           <span id="ia-label">OFFLINE</span>
         </div>
-        <div class="sb-metric">
-          <span class="sb-lbl">CPU</span>
-          <div class="bar-wrap"><div class="bar-fill" id="bar-cpu"></div></div>
-          <span class="sb-val" id="val-cpu">--</span>%
-        </div>
-        <div class="sb-metric">
-          <span class="sb-lbl">RAM</span>
-          <div class="bar-wrap"><div class="bar-fill" id="bar-ram"></div></div>
-          <span class="sb-val" id="val-ram">--</span>%
-        </div>
         <button class="btn-hide" onclick="ocultarPainel()">◈ OCULTAR</button>
       </div>
     </nav>
-
-    <div id="content">
-      <div id="topbar">
-        <span id="topbar-title">CHAT</span>
-        <span id="topbar-metrics"
-          >CPU <span id="t-cpu">--</span>% · RAM
-          <span id="t-ram">--</span>%</span
-        >
+    <section class="page active" id="page-chat">
+      <div id="chat-msgs">
+        <div class="msg ai">
+          <div class="avatar">J</div>
+          <div class="bubble">
+            Sistemas online. Aguardando suas diretrizes, Senhor.
+          </div>
+        </div>
       </div>
-
-      <section class="page active" id="page-chat">
-        <div id="chat-msgs">
-          <div class="msg ai">
-            <div class="avatar">J</div>
-            <div class="bubble">
-              Sistemas online. Aguardando suas diretrizes, Senhor.
+      <div id="chat-bar">
+        <textarea
+          id="chat-in"
+          placeholder="Digite uma diretriz..."
+          rows="1"
+        ></textarea>
+        <button onclick="enviarChat()">ENVIAR ▶</button>
+      </div>
+    </section>
+    <section class="page" id="page-alarms">
+      <div class="page-inner">
+        <div class="section-hdr">
+          <h2>⏰ ALARMES</h2>
+          <button class="btn-sm" onclick="abrirModal()">+ NOVO</button>
+        </div>
+        <div class="card form-card">
+          <div class="form-row">
+            <input type="time" id="alm-hora" class="field" />
+            <input
+              type="text"
+              id="alm-missao"
+              class="field"
+              placeholder="Missão / Motivo"
+            />
+            <input type="date" id="alm-data" class="field" />
+          </div>
+          <div class="form-row">
+            <label class="chk-label">
+              <input type="checkbox" id="alm-rep" /> Repetir</label
+            >
+            <div class="dias-wrap" id="dias-wrap">
+              <button class="dia-btn" data-d="0">Seg</button>
+              <button class="dia-btn" data-d="1">Ter</button>
+              <button class="dia-btn" data-d="2">Qua</button>
+              <button class="dia-btn" data-d="3">Qui</button>
+              <button class="dia-btn" data-d="4">Sex</button>
+              <button class="dia-btn" data-d="5">Sáb</button>
+              <button class="dia-btn" data-d="6">Dom</button>
+            </div>
+            <button class="btn-primary" onclick="criarAlarme()">CRIAR</button>
+          </div>
+        </div>
+        <div id="alarm-list"></div>
+        <div class="row-end">
+          <button class="btn-sm danger" onclick="limparConcluidos()">
+            🗑 LIMPAR CONCLUÍDOS
+          </button>
+        </div>
+      </div>
+    </section>
+    <section class="page" id="page-weather">
+      <div class="page-inner">
+        <div class="section-hdr">
+          <h2>◆ CLIMA</h2>
+        </div>
+        <div class="card form-card">
+          <div class="form-row">
+            <input
+              type="text"
+              id="wx-city"
+              class="field"
+              placeholder="Cidade (ex: Porto Alegre)"
+            />
+            <button class="btn-primary" onclick="buscarClima()">BUSCAR</button>
+          </div>
+        </div>
+        <div id="wx-result"></div>
+      </div>
+    </section>
+    <section class="page" id="page-status">
+      <div class="page-inner">
+        <div class="section-hdr">
+          <h2>▣ STATUS DO SISTEMA</h2>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-lbl">CPU</div>
+            <div class="stat-val" id="st-cpu">--</div>
+            <div class="stat-unit">%</div>
+            <div class="bar-wrap">
+              <div class="bar-fill" id="st-bar-cpu"></div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-lbl">RAM</div>
+            <div class="stat-val" id="st-ram">--</div>
+            <div class="stat-unit">%</div>
+            <div class="bar-wrap">
+              <div class="bar-fill" id="st-bar-ram"></div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-lbl">BATERIA</div>
+            <div class="stat-val" id="st-bat">--</div>
+            <div class="stat-unit">%</div>
+            <div class="bar-wrap">
+              <div class="bar-fill" id="st-bar-bat"></div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-lbl">DISCO</div>
+            <div class="stat-val" id="st-disk">--</div>
+            <div class="stat-unit">%</div>
+            <div class="bar-wrap">
+              <div class="bar-fill" id="st-bar-disk"></div>
             </div>
           </div>
         </div>
-        <div id="chat-bar">
-          <textarea
-            id="chat-in"
-            placeholder="Digite uma diretriz..."
-            rows="1"
-          ></textarea>
-          <button onclick="enviarChat()">ENVIAR ▶</button>
-        </div>
-      </section>
-
-      <section class="page" id="page-alarms">
-        <div class="page-inner">
-          <div class="section-hdr">
-            <h2>⏰ ALARMES</h2>
-            <button class="btn-sm" onclick="abrirModal()">+ NOVO</button>
+        <div id="st-ia" class="card" style="margin-top: 16px; padding: 16px">
+          <div class="stat-lbl">MODO IA</div>
+          <div
+            id="st-ia-info"
+            style="margin-top: 6px; font-size: 13px; opacity: 0.8"
+          >
+            Verificando...
           </div>
-          <div class="card form-card">
-            <div class="form-row">
-              <input type="time" id="alm-hora" class="field" />
-              <input
-                type="text"
-                id="alm-missao"
-                class="field"
-                placeholder="Missão / Motivo"
-              />
-              <input type="date" id="alm-data" class="field" />
-            </div>
-            <div class="form-row">
-              <label class="chk-label"
-                ><input type="checkbox" id="alm-rep" /> Repetir</label
-              >
-              <div class="dias-wrap" id="dias-wrap">
-                <button class="dia-btn" data-d="0">Seg</button>
-                <button class="dia-btn" data-d="1">Ter</button>
-                <button class="dia-btn" data-d="2">Qua</button>
-                <button class="dia-btn" data-d="3">Qui</button>
-                <button class="dia-btn" data-d="4">Sex</button>
-                <button class="dia-btn" data-d="5">Sáb</button>
-                <button class="dia-btn" data-d="6">Dom</button>
+        </div>
+      </div>
+    </section>
+    <section class="page" id="page-config">
+      <div class="page-inner">
+        <div class="section-hdr">
+          <h2>⚙ CONFIGURAÇÕES</h2>
+        </div>
+        <div class="cfg-grid">
+          <div class="card cfg-card">
+            <div class="cfg-hdr">IDENTIDADE</div>
+            <div class="cfg-field">
+              <label>NOME DO MESTRE</label>
+              <div class="field-row-inline">
+                <input class="field" id="cfg-nome" placeholder="Ex: David" />
+                <button
+                  class="btn-sm"
+                  onclick="salvar('nome_mestre', 'cfg-nome', this)"
+                >
+                  SALVAR
+                </button>
               </div>
-              <button class="btn-primary" onclick="criarAlarme()">CRIAR</button>
+            </div>
+            <div class="cfg-field">
+              <label>CIDADE PADRÃO (CLIMA)</label>
+              <div class="field-row-inline">
+                <input
+                  class="field"
+                  id="cfg-cidade"
+                  placeholder="Ex: Porto Alegre"
+                />
+                <button
+                  class="btn-sm"
+                  onclick="salvar('cidade_padrao', 'cfg-cidade', this)"
+                >
+                  SALVAR
+                </button>
+              </div>
             </div>
           </div>
-          <div id="alarm-list"></div>
-          <div class="row-end">
-            <button class="btn-sm danger" onclick="limparConcluidos()">
-              🗑 LIMPAR CONCLUÍDOS
+          <div class="card cfg-card">
+            <div class="cfg-hdr">CHAVES DE IA</div>
+            <div class="cfg-field">
+              <label>GEMINI API KEY</label>
+              <div class="field-row-inline">
+                <input
+                  class="field"
+                  id="cfg-gemini"
+                  type="password"
+                  placeholder="AIza..."
+                />
+                <button
+                  class="btn-sm"
+                  onclick="salvar('gemini', 'cfg-gemini', this)"
+                >
+                  SALVAR
+                </button>
+              </div>
+            </div>
+            <div class="cfg-field">
+              <label>QWEN / OPENROUTER KEY</label>
+              <div class="field-row-inline">
+                <input
+                  class="field"
+                  id="cfg-qwen"
+                  type="password"
+                  placeholder="sk-or-..."
+                />
+                <button
+                  class="btn-sm"
+                  onclick="salvar('qwen', 'cfg-qwen', this)"
+                >
+                  SALVAR
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="card cfg-card">
+            <div class="cfg-hdr">VOZ &amp; MIC</div>
+            <div class="cfg-field">
+              <label>VOZ TTS</label>
+              <div class="field-row-inline">
+                <input
+                  class="field"
+                  id="cfg-voz"
+                  placeholder="pt-BR-AntonioNeural"
+                />
+                <button class="btn-sm" onclick="salvar('voz', 'cfg-voz', this)">
+                  SALVAR
+                </button>
+              </div>
+            </div>
+            <div class="cfg-field">
+              <label>MODELO WHISPER</label>
+              <div class="field-row-inline">
+                <select class="field" id="cfg-whisper">
+                  <option>tiny</option>
+                  <option>base</option>
+                  <option selected>small</option>
+                  <option>medium</option>
+                  <option>large</option>
+                </select>
+                <button
+                  class="btn-sm"
+                  onclick="salvar('whisper_model', 'cfg-whisper', this)"
+                >
+                  SALVAR
+                </button>
+              </div>
+            </div>
+            <button
+              class="btn-sm"
+              style="margin-top: 8px"
+              onclick="testarVoz()"
+            >
+              ▶ TESTAR VOZ
             </button>
           </div>
-        </div>
-      </section>
-
-      <section class="page" id="page-weather">
-        <div class="page-inner">
-          <div class="section-hdr"><h2>◆ CLIMA</h2></div>
-          <div class="card form-card">
-            <div class="form-row">
-              <input
-                type="text"
-                id="wx-city"
-                class="field"
-                placeholder="Cidade (ex: Porto Alegre)"
-              />
-              <button class="btn-primary" onclick="buscarClima()">
-                BUSCAR
+          <div class="card cfg-card">
+            <div class="cfg-hdr">OPENWEATHER</div>
+            <div class="cfg-field">
+              <label>API KEY</label>
+              <div class="field-row-inline">
+                <input
+                  class="field"
+                  id="cfg-owm"
+                  type="password"
+                  placeholder="..."
+                />
+                <button
+                  class="btn-sm"
+                  onclick="salvar('openweather_api_key', 'cfg-owm', this)"
+                >
+                  SALVAR
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="card cfg-card">
+            <div class="cfg-hdr">SPOTIFY</div>
+            <div class="cfg-field">
+              <label>CLIENT ID</label>
+              <div class="field-row-inline">
+                <input class="field" id="cfg-sp-id" placeholder="..." />
+                <button
+                  class="btn-sm"
+                  onclick="salvar('spotify_id', 'cfg-sp-id', this)"
+                >
+                  SALVAR
+                </button>
+              </div>
+            </div>
+            <div class="cfg-field">
+              <label>CLIENT SECRET</label>
+              <div class="field-row-inline">
+                <input
+                  class="field"
+                  id="cfg-sp-sec"
+                  type="password"
+                  placeholder="..."
+                />
+                <button
+                  class="btn-sm"
+                  onclick="salvar('spotify_sec', 'cfg-sp-sec', this)"
+                >
+                  SALVAR
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="card cfg-card">
+            <div class="cfg-hdr">SMARTTHINGS (TV)</div>
+            <div class="cfg-field">
+              <label>TOKEN</label>
+              <div class="field-row-inline">
+                <input
+                  class="field"
+                  id="cfg-st"
+                  type="password"
+                  placeholder="..."
+                />
+                <button
+                  class="btn-sm"
+                  onclick="salvar('smartthings', 'cfg-st', this)"
+                >
+                  SALVAR
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="card cfg-card">
+            <div class="cfg-hdr">TELEGRAM</div>
+            <div class="cfg-field">
+              <label>BOT TOKEN</label>
+              <div class="field-row-inline">
+                <input
+                  class="field"
+                  id="cfg-tg"
+                  type="password"
+                  placeholder="..."
+                />
+                <button
+                  class="btn-sm"
+                  onclick="salvar('telegram_token', 'cfg-tg', this)"
+                >
+                  SALVAR
+                </button>
+              </div>
+            </div>
+            <div class="cfg-field">
+              <label>AUTH TOKEN</label>
+              <div class="field-row-inline">
+                <input
+                  class="field"
+                  id="cfg-tg-auth"
+                  type="password"
+                  placeholder="..."
+                />
+                <button
+                  class="btn-sm"
+                  onclick="salvar('telegram_auth_token', 'cfg-tg-auth', this)"
+                >
+                  SALVAR
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="card cfg-card">
+            <div class="cfg-hdr">MODO IA</div>
+            <div class="ia-btns">
+              <button class="btn-ia" onclick="trocarIA('ollama')">
+                OLLAMA
               </button>
+              <button class="btn-ia" onclick="trocarIA('gemini')">
+                GEMINI
+              </button>
+              <button class="btn-ia" onclick="trocarIA('qwen')">QWEN</button>
+              <button class="btn-ia" onclick="trocarIA('auto')">AUTO</button>
             </div>
           </div>
-          <div id="wx-result"></div>
         </div>
-      </section>
-
-      <section class="page" id="page-status">
-        <div class="page-inner">
-          <div class="section-hdr"><h2>▣ STATUS DO SISTEMA</h2></div>
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-lbl">CPU</div>
-              <div class="stat-val" id="st-cpu">--</div>
-              <div class="stat-unit">%</div>
-              <div class="bar-wrap">
-                <div class="bar-fill" id="st-bar-cpu"></div>
-              </div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-lbl">RAM</div>
-              <div class="stat-val" id="st-ram">--</div>
-              <div class="stat-unit">%</div>
-              <div class="bar-wrap">
-                <div class="bar-fill" id="st-bar-ram"></div>
-              </div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-lbl">BATERIA</div>
-              <div class="stat-val" id="st-bat">--</div>
-              <div class="stat-unit">%</div>
-              <div class="bar-wrap">
-                <div class="bar-fill" id="st-bar-bat"></div>
-              </div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-lbl">DISCO</div>
-              <div class="stat-val" id="st-disk">--</div>
-              <div class="stat-unit">%</div>
-              <div class="bar-wrap">
-                <div class="bar-fill" id="st-bar-disk"></div>
-              </div>
-            </div>
-          </div>
-          <div id="st-ia" class="card" style="margin-top: 16px; padding: 16px">
-            <div class="stat-lbl">MODO IA</div>
-            <div
-              id="st-ia-info"
-              style="margin-top: 6px; font-size: 13px; opacity: 0.8"
+      </div>
+    </section>
+    <section class="page" id="page-library">
+      <div class="page-inner">
+        <div class="section-hdr"><h2>BIBLIOTECA DE COMANDOS</h2></div>
+        <div class="card form-card">
+          <div class="form-row">
+            <input
+              type="text"
+              id="lib-busca"
+              class="field"
+              placeholder="Buscar comando..."
+              oninput="filtrarLib()"
+            />
+            <select
+              id="lib-cat"
+              class="field"
+              style="max-width: 160px"
+              onchange="filtrarLib()"
             >
-              Verificando...
-            </div>
+              <option value="">Todas</option>
+              <option value="Sistema">Sistema</option>
+              <option value="TV">TV</option>
+              <option value="Spotify">Spotify</option>
+              <option value="Web">Web</option>
+              <option value="Monitor">Monitor</option>
+              <option value="Alarme">Alarme</option>
+            </select>
           </div>
         </div>
-      </section>
-
-      <section class="page" id="page-config">
-        <div class="page-inner">
-          <div class="section-hdr"><h2>⚙ CONFIGURAÇÕES</h2></div>
-          <div class="cfg-grid">
-            <div class="card cfg-card">
-              <div class="cfg-hdr">IDENTIDADE</div>
-              <div class="cfg-field">
-                <label>NOME DO MESTRE</label>
-                <div class="field-row-inline">
-                  <input
-                    class="field"
-                    id="cfg-nome"
-                    placeholder="Ex: David"
-                  /><button
-                    class="btn-sm"
-                    onclick="salvar('nome_mestre', 'cfg-nome', this)"
-                  >
-                    SALVAR
-                  </button>
-                </div>
-              </div>
-              <div class="cfg-field">
-                <label>CIDADE PADRÃO (CLIMA)</label>
-                <div class="field-row-inline">
-                  <input
-                    class="field"
-                    id="cfg-cidade"
-                    placeholder="Ex: Porto Alegre"
-                  /><button
-                    class="btn-sm"
-                    onclick="salvar('cidade_padrao', 'cfg-cidade', this)"
-                  >
-                    SALVAR
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div class="card cfg-card">
-              <div class="cfg-hdr">CHAVES DE IA</div>
-              <div class="cfg-field">
-                <label>GEMINI API KEY</label>
-                <div class="field-row-inline">
-                  <input
-                    class="field"
-                    id="cfg-gemini"
-                    type="password"
-                    placeholder="AIza..."
-                  /><button
-                    class="btn-sm"
-                    onclick="salvar('gemini', 'cfg-gemini', this)"
-                  >
-                    SALVAR
-                  </button>
-                </div>
-              </div>
-              <div class="cfg-field">
-                <label>QWEN / OPENROUTER KEY</label>
-                <div class="field-row-inline">
-                  <input
-                    class="field"
-                    id="cfg-qwen"
-                    type="password"
-                    placeholder="sk-or-..."
-                  /><button
-                    class="btn-sm"
-                    onclick="salvar('qwen', 'cfg-qwen', this)"
-                  >
-                    SALVAR
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div class="card cfg-card">
-              <div class="cfg-hdr">VOZ & MIC</div>
-              <div class="cfg-field">
-                <label>VOZ TTS</label>
-                <div class="field-row-inline">
-                  <input
-                    class="field"
-                    id="cfg-voz"
-                    placeholder="pt-BR-AntonioNeural"
-                  /><button
-                    class="btn-sm"
-                    onclick="salvar('voz', 'cfg-voz', this)"
-                  >
-                    SALVAR
-                  </button>
-                </div>
-              </div>
-              <div class="cfg-field">
-                <label>MODELO WHISPER</label>
-                <div class="field-row-inline">
-                  <select class="field" id="cfg-whisper">
-                    <option>tiny</option>
-                    <option>base</option>
-                    <option selected>small</option>
-                    <option>medium</option>
-                    <option>large</option>
-                  </select>
-                  <button
-                    class="btn-sm"
-                    onclick="salvar('whisper_model', 'cfg-whisper', this)"
-                  >
-                    SALVAR
-                  </button>
-                </div>
-              </div>
-              <button
-                class="btn-sm"
-                style="margin-top: 8px"
-                onclick="testarVoz()"
-              >
-                ▶ TESTAR VOZ
-              </button>
-            </div>
-            <div class="card cfg-card">
-              <div class="cfg-hdr">OPENWEATHER</div>
-              <div class="cfg-field">
-                <label>API KEY</label>
-                <div class="field-row-inline">
-                  <input
-                    class="field"
-                    id="cfg-owm"
-                    type="password"
-                    placeholder="..."
-                  /><button
-                    class="btn-sm"
-                    onclick="salvar('openweather_api_key', 'cfg-owm', this)"
-                  >
-                    SALVAR
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div class="card cfg-card">
-              <div class="cfg-hdr">SPOTIFY</div>
-              <div class="cfg-field">
-                <label>CLIENT ID</label>
-                <div class="field-row-inline">
-                  <input
-                    class="field"
-                    id="cfg-sp-id"
-                    placeholder="..."
-                  /><button
-                    class="btn-sm"
-                    onclick="salvar('spotify_id', 'cfg-sp-id', this)"
-                  >
-                    SALVAR
-                  </button>
-                </div>
-              </div>
-              <div class="cfg-field">
-                <label>CLIENT SECRET</label>
-                <div class="field-row-inline">
-                  <input
-                    class="field"
-                    id="cfg-sp-sec"
-                    type="password"
-                    placeholder="..."
-                  /><button
-                    class="btn-sm"
-                    onclick="salvar('spotify_sec', 'cfg-sp-sec', this)"
-                  >
-                    SALVAR
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div class="card cfg-card">
-              <div class="cfg-hdr">SMARTTHINGS (TV)</div>
-              <div class="cfg-field">
-                <label>TOKEN</label>
-                <div class="field-row-inline">
-                  <input
-                    class="field"
-                    id="cfg-st"
-                    type="password"
-                    placeholder="..."
-                  /><button
-                    class="btn-sm"
-                    onclick="salvar('smartthings', 'cfg-st', this)"
-                  >
-                    SALVAR
-                  </button>
-                </div>
-              </div>
-              <div class="cfg-field">
-                <label>DEVICE ID DA TV</label>
-                <div class="field-row-inline">
-                  <input
-                    class="field"
-                    id="cfg-st-tv"
-                    placeholder="uuid..."
-                  /><button
-                    class="btn-sm"
-                    onclick="salvar('smartthings_tv_id', 'cfg-st-tv', this)"
-                  >
-                    SALVAR
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div class="card cfg-card">
-              <div class="cfg-hdr">TELEGRAM</div>
-              <div class="cfg-field">
-                <label>BOT TOKEN</label>
-                <div class="field-row-inline">
-                  <input
-                    class="field"
-                    id="cfg-tg"
-                    type="password"
-                    placeholder="..."
-                  /><button
-                    class="btn-sm"
-                    onclick="salvar('telegram_token', 'cfg-tg', this)"
-                  >
-                    SALVAR
-                  </button>
-                </div>
-              </div>
-              <div class="cfg-field">
-                <label>AUTH TOKEN</label>
-                <div class="field-row-inline">
-                  <input
-                    class="field"
-                    id="cfg-tg-auth"
-                    type="password"
-                    placeholder="..."
-                  /><button
-                    class="btn-sm"
-                    onclick="salvar('telegram_auth_token', 'cfg-tg-auth', this)"
-                  >
-                    SALVAR
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div class="card cfg-card">
-              <div class="cfg-hdr">MODO IA</div>
-              <div class="ia-btns">
-                <button class="btn-ia" onclick="trocarIA('ollama')">
-                  OLLAMA
-                </button>
-                <button class="btn-ia" onclick="trocarIA('gemini')">
-                  GEMINI
-                </button>
-                <button class="btn-ia" onclick="trocarIA('qwen')">QWEN</button>
-                <button class="btn-ia" onclick="trocarIA('auto')">AUTO</button>
-              </div>
-            </div>
-            <div class="card cfg-card" style="grid-column: 1/-1">
-              <div class="cfg-hdr">DEEPGRAM</div>
-              <div class="cfg-field">
-                <label>API KEY</label>
-                <div class="field-row-inline">
-                  <input
-                    class="field"
-                    id="cfg-dg"
-                    type="password"
-                    placeholder="..."
-                  /><button
-                    class="btn-sm"
-                    onclick="salvar('deepgram_api_key', 'cfg-dg', this)"
-                  >
-                    SALVAR
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
+        <div id="lib-list"></div>
+      </div>
+    </section>
     <div id="toast"></div>
     <script src="app.js"></script>
   </body>

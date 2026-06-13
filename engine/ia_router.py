@@ -22,10 +22,7 @@ from engine.controller import (
 try:
     from engine.controller import info_monitor, desligar_monitor
 except ImportError:
-    from vision.capture import (
-        status_monitor as info_monitor,
-        parar_monitor as desligar_monitor,
-    )
+    from vision.capture import status_monitor as info_monitor, parar_monitor as desligar_monitor
 
 __all__ = [
     "IARRouter",
