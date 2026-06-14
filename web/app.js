@@ -409,7 +409,7 @@ window.trocarIA = trocarIA;
 
 function abrirAdicionarItem() { }
 
-// ── BIBLIOTECA DE COMANDOS ────────────────────────────────────────────
+//  BIBLIOTECA DE COMANDOS 
 const BIBLIOTECA = [
      { cmd: "dormir", label: "DORMIR", cat: "Sistema" },
      { cmd: "boa noite", label: "BOA NOITE", cat: "Sistema" },

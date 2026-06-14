@@ -82,7 +82,7 @@ def capturar_audio() -> str:
             print(f"[Você]: {res}")
             return res
     except Exception as e:
-        print(f"Erro captura: {e}")
+        print(f"Sem captura: {e}")
         return ""
 
 
