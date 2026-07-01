@@ -17,18 +17,31 @@ log = logging.getLogger("jarvis")
 
 import config
 from painel import PainelCore, set_loop
-from audio.voz import ouvir_comando, falar, interromper_voz, iniciar_wake_listener, barge_cmd
+from audio.voz import (
+    ouvir_comando,
+    falar,
+    interromper_voz,
+    iniciar_wake_listener,
+    barge_cmd,
+)
 from engine.core import processar_comando, inicializar_ia
 from engine.controller import get_shutdown_event, preaquecer_modelo
 from tasks.monitor import iniciar_sentinela, registrar_loop_monitor_voz
 from tasks.alarm import gerenciador_alarmes
 from tasks.wake import processar_wake, resposta_ativacao_aleatoria
+from tasks.pomodoro import registrar_falar_cb
 from app_ul.interface import JarvisUI
 from integrations.telegram_bridge_auth_patch import iniciar_telegram
 
-from tasks.clap_detector import iniciar_detector, registrar_callback_palma, parar_detector
+from tasks.clap_detector import (
+    iniciar_detector,
+    registrar_callback_palma,
+    parar_detector,
+)
 from brain.watchdog import watchdog, registrar_modulos_padrao
 from engine.ConnectionManager import lm_manager
+
+os.environ["QTWEBENGINE_REMOTE_DEBUGGING"] = "9222"
 
 QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
 app = QApplication(sys.argv)
@@ -36,9 +49,12 @@ app.setQuitOnLastWindowClosed(False)
 
 SLEEP_TIMEOUT = 30
 
+
 async def acao_palma():
     log.info("Ação de palma disparada!")
-    await falar("Sim, senhor? Estou ouvindo.")
+    await falar("Olá senhor Davi, eu sou o jarvis estou pronto para instrução.")
+    await falar("Modo sentinela pronto!")
+
 
 async def executar(cmd: str):
     try:
@@ -48,36 +64,42 @@ async def executar(cmd: str):
     except Exception as e:
         log.error(f"Erro ao processar: {e}")
 
+
 async def loop_principal(ui):
     await inicializar_ia()
     iniciar_sentinela()
     registrar_loop_monitor_voz(asyncio.get_running_loop())
-    
+
     asyncio.create_task(preaquecer_modelo())
 
     registrar_modulos_padrao()
     watchdog.iniciar()
     log.info("Watchdog iniciado — monitorando IA, áudio, LM Studio e Sentinela")
-    
+
     lm_manager.iniciar_monitoramento(asyncio.get_running_loop())
     log.info("LM Studio monitoring iniciado")
-    
+
     iniciar_wake_listener()
-    registrar_callback_palma(lambda: asyncio.run_coroutine_threadsafe(acao_palma(), loop_engine))
+    registrar_callback_palma(
+        lambda: asyncio.run_coroutine_threadsafe(acao_palma(), loop_engine)
+    )
     iniciar_detector()
-    
+    registrar_falar_cb(
+        lambda t: asyncio.run_coroutine_threadsafe(falar(t), loop_engine)
+    )
+
     threading.Thread(target=iniciar_telegram, daemon=True, name="telegram").start()
-    
+
     shutdown = get_shutdown_event()
     modo_continuo = False
     ultimo_comando = 0.0
     task_atual: asyncio.Task | None = None
-    
+
     while not shutdown.is_set():
         try:
             config.recarregar_identidade_painel()
 
-            audio, task_atual = await _aguardar_task_ou_barge(task_atual)
+            audio, task_atual = await aguardar_task_ou_barge(task_atual)
             if audio is not None:
                 if task_atual is not None:
                     interromper_voz()
@@ -86,9 +108,13 @@ async def loop_principal(ui):
                 # Usa o áudio do barge direto
             else:
                 audio = await ouvir_comando()
-            
+
             if not audio or not isinstance(audio, str):
-                if modo_continuo and ultimo_comando > 0 and (time.time() - ultimo_comando) > SLEEP_TIMEOUT:
+                if (
+                    modo_continuo
+                    and ultimo_comando > 0
+                    and (time.time() - ultimo_comando) > SLEEP_TIMEOUT
+                ):
                     await falar("Encerrando escuta contínua.")
                     modo_continuo = False
                     ultimo_comando = 0.0
@@ -118,11 +144,11 @@ async def loop_principal(ui):
         except Exception as e:
             log.exception("Erro no loop principal")
             await asyncio.sleep(0.3)
-    
+
     parar_detector()
 
 
-async def _aguardar_task_ou_barge(task: asyncio.Task | None):
+async def aguardar_task_ou_barge(task: asyncio.Task | None):
     """Se task está rodando, espera ela com polling curto. Se chegar barge, retorna o áudio."""
     if task is None or task.done():
         return None, None
@@ -138,7 +164,9 @@ async def _aguardar_task_ou_barge(task: asyncio.Task | None):
             pass
     return None, None
 
+
 loop_engine = None
+
 
 def rodar_engine(ui):
     global loop_engine
@@ -146,26 +174,30 @@ def rodar_engine(ui):
     asyncio.set_event_loop(loop)
     loop_engine = loop
     set_loop(loop)
-    
+
     try:
         gerenciador_alarmes.registrar_callbacks(falar, loop)
     except Exception as e:
         log.warning(f"Aviso ao registrar alarmes: {e}")
-    
+
     try:
         loop.run_until_complete(loop_principal(ui))
     finally:
         loop.close()
 
+
 def main():
     painel = PainelCore()
     ui = JarvisUI(painel=painel)
     ui.show()
-    
-    thread_engine = threading.Thread(target=rodar_engine, args=(ui,), daemon=True, name="engine")
+
+    thread_engine = threading.Thread(
+        target=rodar_engine, args=(ui,), daemon=True, name="engine"
+    )
     thread_engine.start()
-    
+
     sys.exit(app.exec())
+
 
 if __name__ == "__main__":
     main()

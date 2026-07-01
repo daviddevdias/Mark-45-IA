@@ -1,5 +1,7 @@
 import asyncio
 import json
+import queue
+import threading
 from pathlib import Path
 import config
 import psutil
@@ -35,6 +37,15 @@ CAMPOS_CONFIG_CORE = {
     "tema_ativo",
     "notas",
     "cidade_padrao",
+    "email_imap_host",
+    "email_user",
+    "email_pass",
+    "calendar_ics_path",
+    "news_ativo",
+    "calendar_ativo",
+    "email_ativo",
+    "briefing_auto",
+    "pomodoro_padrao",
 }
 
 
@@ -147,6 +158,19 @@ async def run_test_voice():
     await falar("Painel JARVIS operacional.")
 
 
+from PyQt6.QtWebEngineCore import QWebEnginePage
+
+
+class DebugWebEnginePage(QWebEnginePage):
+    """Subclasse real necessária para capturar console.log/erro do JS.
+    Atribuir a função direto na instância (page.javaScriptConsoleMessage = fn)
+    NÃO funciona no PyQt — métodos virtuais do Qt só são interceptados
+    via subclasse de verdade."""
+
+    def javaScriptConsoleMessage(self, level, message, line, source):
+        print(f"[JS console] {source}:{line} — {message}")
+
+
 class JarvisBridge(QObject):
 
     dados_para_ui = pyqtSignal(str)
@@ -156,9 +180,16 @@ class JarvisBridge(QObject):
         self.cpu_atual = 0.0
         self.ram_atual = 0.0
         self.window_ref = None
+        self._logs: list[dict] = []
+        self._lm_online = False
 
     def bind_window(self, w: QMainWindow):
         self.window_ref = w
+
+    def adicionar_log(self, tipo: str, msg: str):
+        self._logs.append({"tipo": tipo, "msg": msg})
+        if len(self._logs) > 100:
+            self._logs = self._logs[-100:]
 
     @pyqtSlot()
     def ocultar_painel(self):
@@ -180,10 +211,13 @@ class JarvisBridge(QObject):
         try:
             from engine.core import processar_comando
 
+            self.adicionar_log("comando", f"Processando: {diretriz}")
             texto = await processar_comando(diretriz)
             if texto:
                 self.dados_para_ui.emit(json.dumps({"resposta": texto}))
+                self.adicionar_log("info", f"Resposta: {texto[:60]}")
         except Exception as e:
+            self.adicionar_log("erro", f"Erro: {e}")
             self.dados_para_ui.emit(json.dumps({"erro": str(e)}))
 
     @pyqtSlot(str, result=str)
@@ -191,6 +225,7 @@ class JarvisBridge(QObject):
         from engine.ia_router import router
 
         msg = router.definir_modo(modo)
+        self.adicionar_log("sistema", f"Modo IA: {modo}")
         self.dados_para_ui.emit(
             json.dumps({"resposta": msg, "ia_status": router.status})
         )
@@ -224,6 +259,15 @@ class JarvisBridge(QObject):
                     "deepgram_api_key": "",
                     "whisper_model": getattr(config, "WHISPER_MODEL", "small"),
                     "tema_ativo": getattr(config, "tema_ativo", "LARANJA_MESA"),
+                    "email_imap_host": getattr(config, "EMAIL_IMAP_HOST", ""),
+                    "email_user": getattr(config, "EMAIL_USER", ""),
+                    "email_pass": getattr(config, "EMAIL_PASS", ""),
+                    "calendar_ics_path": getattr(config, "CALENDAR_ICS_PATH", ""),
+                    "news_ativo": getattr(config, "NEWS_ATIVO", True),
+                    "calendar_ativo": getattr(config, "CALENDAR_ATIVO", False),
+                    "email_ativo": getattr(config, "EMAIL_ATIVO", False),
+                    "briefing_auto": getattr(config, "BRIEFING_AUTO", True),
+                    "pomodoro_padrao": getattr(config, "POMODORO_PADRAO", 25),
                 }
             )
         except Exception as e:
@@ -327,6 +371,37 @@ class JarvisBridge(QObject):
         except Exception as e:
             return json.dumps({"modelo": "", "servidor": False, "erro": str(e)})
 
+    @pyqtSlot(str, result=str)
+    def obter_eventos_por_data(self, data: str) -> str:
+        try:
+            from tasks.calendar_integration import obter_eventos
+            eventos = obter_eventos(data)
+            return json.dumps(eventos)
+        except Exception as e:
+            return json.dumps({"erro": str(e)})
+
+    @pyqtSlot(result=str)
+    def obter_emails(self) -> str:
+        try:
+            from tasks.email_checker import verificar_email
+            import asyncio
+            if main_async_loop and not main_async_loop.is_closed():
+                fut = asyncio.run_coroutine_threadsafe(
+                    verificar_email(10), main_async_loop
+                )
+                emails = fut.result(timeout=15)
+                return json.dumps(emails)
+            return json.dumps([])
+        except Exception as e:
+            return json.dumps({"erro": str(e)})
+
+    @pyqtSlot(str)
+    def alternar_sentinela(self, acao: str):
+        if self.window_ref and hasattr(self.window_ref, '_sentinela_ativado'):
+            self.window_ref._sentinela_ativado = (acao == "ativar")
+            status = "ativado" if self.window_ref._sentinela_ativado else "desativado"
+            self.adicionar_log("sistema", f"Sentinela {status} pelo painel.")
+
     @pyqtSlot()
     def testar_voz_painel(self):
         try:
@@ -346,12 +421,27 @@ class PainelCore(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Jarvis Control Panel")
+        self.resize(1360, 768)
         self.voz_ativa = False
         self.bridge = JarvisBridge()
         self.bridge.bind_window(self)
+        self._sentinela_cache = {}
+        self._sentinela_queue = queue.Queue(maxsize=1)
+        self._sentinela_ativado = False  # desligado por padrão
 
         self.web = QWebEngineView()
         self.setCentralWidget(self.web)
+
+        # Página customizada: captura de fato os erros/logs de JS no terminal
+        self._page = DebugWebEnginePage(self.web)
+        self.web.setPage(self._page)
+
+        # Reforço: garante que a página file:// consiga carregar recursos locais
+        # IMPORTANTE: usar page.settings() em vez de web.settings() — NÃO propagam!
+        from PyQt6.QtWebEngineCore import QWebEngineSettings
+        settings = self.web.page().settings()
+        settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
 
         channel = QWebChannel()
         channel.registerObject("bridge", self.bridge)
@@ -360,11 +450,45 @@ class PainelCore(QMainWindow):
         web_path = QUrl.fromLocalFile(str(config.BASE_DIR / "web" / "index.html"))
         self.web.setUrl(web_path)
 
+        # Teste: injeta JS após carregamento para confirmar que execução funciona
+        QTimer.singleShot(1500, lambda: self.web.page().runJavaScript(
+            "console.log('[PYTHON] Injeção direta OK'); adicionarLog('info', 'Backend→JS funcional.');"
+            "receberDoBackend({temp:42,cpu:50,ram:50,bateria:80,disco:60,uptime:'TESTE',internet:true,lm_status:true});"
+        ))
+
         config.registrar_callback_voz_painel(self.on_voice_change)
 
         self.timer_stats = QTimer()
         self.timer_stats.timeout.connect(self.atualizar_stats)
         self.timer_stats.start(1000)
+
+        self.timer_sentinela = QTimer()
+        self.timer_sentinela.timeout.connect(self._coletar_sentinela)
+        self.timer_sentinela.start(1000)
+
+        self._sentinela_thread = threading.Thread(target=self._loop_sentinela, daemon=True)
+        self._sentinela_thread.start()
+
+    def _loop_sentinela(self):
+        import time
+        while True:
+            time.sleep(15)
+            try:
+                from tasks.sentinela import coletar_tudo
+                dados = coletar_tudo()
+                try:
+                    self._sentinela_queue.get_nowait()
+                except queue.Empty:
+                    pass
+                self._sentinela_queue.put_nowait(dados)
+            except:
+                pass
+
+    def _coletar_sentinela(self):
+        try:
+            self._sentinela_cache = self._sentinela_queue.get_nowait()
+        except queue.Empty:
+            pass
 
     def on_voice_change(self, on: bool, vol: float = 1.0):
         self.voz_ativa = on
@@ -372,24 +496,77 @@ class PainelCore(QMainWindow):
 
     def atualizar_stats(self):
         dados = {"voz_speaking": self.voz_ativa}
+        # Detecta desktop (sem bateria) — verifica só uma vez
+        if not hasattr(self, '_sem_bateria'):
+            try:
+                bat = psutil.sensors_battery()
+                self._sem_bateria = (bat is None)
+            except:
+                self._sem_bateria = True
+        if self._sem_bateria:
+            dados["bateria_ausente"] = True
         try:
             from tasks.monitor import status_hardware
-
             hw = status_hardware()
-            dados.update(
-                {
-                    "cpu": hw["cpu_percent"],
-                    "ram": hw["ram_percent"],
-                    "bateria": hw["bateria_percent"],
-                    "disco": hw["disco_percent"],
-                    "temp": hw["temp_cpu"],
-                    "uptime": hw["uptime"],
-                    "processos": hw["processos"],
-                    "internet": hw["internet"],
-                }
-            )
+            dados.update({
+                "cpu": hw["cpu_percent"],
+                "ram": hw["ram_percent"],
+                "bateria": hw["bateria_percent"],
+                "disco": hw["disco_percent"],
+                "temp": hw["temp_cpu"],
+                "uptime": hw["uptime"],
+                "processos": hw["processos"],
+                "internet": hw["internet"],
+                "gpu": hw.get("gpu_percent", 0),
+                "gpu_temp": hw.get("gpu_temp", 0),
+                "gpu_mem": hw.get("gpu_mem", 0),
+                "gpu_nome": hw.get("gpu_nome", ""),
+            })
         except:
             self.bridge.cpu_atual = psutil.cpu_percent(interval=None)
             self.bridge.ram_atual = psutil.virtual_memory().percent
-            dados.update({"cpu": self.bridge.cpu_atual, "ram": self.bridge.ram_atual})
-        self.bridge.dados_para_ui.emit(json.dumps(dados))
+            from datetime import datetime
+            start = getattr(self, "_start_time", datetime.now())
+            if not hasattr(self, "_start_time"):
+                self._start_time = start
+            delta = datetime.now() - start
+            dias = delta.days
+            horas = delta.seconds // 3600
+            minutos = (delta.seconds % 3600) // 60
+            dados.update({
+                "cpu": self.bridge.cpu_atual,
+                "ram": self.bridge.ram_atual,
+                "uptime": f"{dias}d {horas}h {minutos}m",
+                "internet": True,
+                "temp": 0,
+                "processos": 0,
+                "gpu": 0,
+                "gpu_temp": 0,
+                "gpu_mem": 0,
+                "gpu_nome": "",
+            })
+
+        try:
+            from engine.controller import disponivel as _lm
+            lm_ok = bool(_lm)
+            if lm_ok != self.bridge._lm_online:
+                self.bridge._lm_online = lm_ok
+                if lm_ok:
+                    self.bridge.adicionar_log("ok", "LM Studio online.")
+                else:
+                    self.bridge.adicionar_log("erro", "LM Studio offline.")
+                    self.bridge._logs.append({"tipo": "erro", "msg": "LM Studio sem operação — sistema fora de trabalho."})
+            dados["lm_status"] = lm_ok
+
+            if self._sentinela_ativado and self._sentinela_cache:
+                dados["sentinela"] = self._sentinela_cache
+
+            if self.bridge._logs:
+                dados["logs"] = list(self.bridge._logs)
+                self.bridge._logs.clear()
+
+            dados_json = json.dumps(dados)
+            self.bridge.dados_para_ui.emit(dados_json)
+        except Exception as e:
+            print(f"Erro atualizar_stats: {e}")
+            self.bridge.dados_para_ui.emit(json.dumps(dados))

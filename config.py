@@ -60,6 +60,15 @@ def definir_valor_ui(chave: str, valor: str):
         "deepgram_api_key": "DEEPGRAM_API_KEY",
         "whisper_model": "WHISPER_MODEL",
         "cidade_padrao": "cidade_padrao",
+        "email_imap_host": "EMAIL_IMAP_HOST",
+        "email_user": "EMAIL_USER",
+        "email_pass": "EMAIL_PASS",
+        "calendar_ics_path": "CALENDAR_ICS_PATH",
+        "news_ativo": "NEWS_ATIVO",
+        "calendar_ativo": "CALENDAR_ATIVO",
+        "email_ativo": "EMAIL_ATIVO",
+        "briefing_auto": "BRIEFING_AUTO",
+        "pomodoro_padrao": "POMODORO_PADRAO",
     }
     alvo = nomes.get(chave, chave)
     if alvo == "DEVICE_INDEX":
@@ -135,3 +144,13 @@ tema_ativo = cfg.get("tema_ativo", "MIDNIGHT_MINIMAL")
 notas = cfg.get("notas", "")
 cidade_padrao = cfg.get("cidade_padrao", "")
 voz_referencia = str(ASSETS_DIR / "voz_clone.wav")
+
+EMAIL_IMAP_HOST = cfg.get("email_imap_host", "")
+EMAIL_USER = cfg.get("email_user", "")
+EMAIL_PASS = cfg.get("email_pass", "")
+CALENDAR_ICS_PATH = cfg.get("calendar_ics_path", "")
+NEWS_ATIVO = cfg.get("news_ativo", True)
+CALENDAR_ATIVO = cfg.get("calendar_ativo", False)
+EMAIL_ATIVO = cfg.get("email_ativo", False)
+BRIEFING_AUTO = cfg.get("briefing_auto", True)
+POMODORO_PADRAO = int(cfg.get("pomodoro_padrao", 25))

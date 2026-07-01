@@ -1,297 +1,712 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>J.A.R.V.I.S ◈ MARK XXVIII</title>
-    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <nav id="sidebar">
-      <div id="brand">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>J.A.R.V.I.S â—ˆ MARK XXVIII</title>
+  <script>
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Copyright (C) 2016 KlarÃ¤lvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author Milian Wolff <milian.wolff@kdab.com>
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the QtWebChannel module of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:LGPL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 3 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL3 included in the
+** packaging of this file. Please review the following information to
+** ensure the GNU Lesser General Public License version 3 requirements
+** will be met: https://www.gnu.org/licenses/lgpl-3.0.html.
+**
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 2.0 or (at your option) the GNU General
+** Public license version 3 or any later version approved by the KDE Free
+** Qt Foundation. The licenses are as published by the Free Software
+** Foundation and appearing in the file LICENSE.GPL2 and LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-2.0.html and
+** https://www.gnu.org/licenses/gpl-3.0.html.
+**
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+"use strict";
+
+var QWebChannelMessageTypes = {
+    signal: 1,
+    propertyUpdate: 2,
+    init: 3,
+    idle: 4,
+    debug: 5,
+    invokeMethod: 6,
+    connectToSignal: 7,
+    disconnectFromSignal: 8,
+    setProperty: 9,
+    response: 10,
+};
+
+var QWebChannel = function(transport, initCallback)
+{
+    if (typeof transport !== "object" || typeof transport.send !== "function") {
+        console.error("The QWebChannel expects a transport object with a send function and onmessage callback property." +
+                      " Given is: transport: " + typeof(transport) + ", transport.send: " + typeof(transport.send));
+        return;
+    }
+
+    var channel = this;
+    this.transport = transport;
+
+    this.send = function(data)
+    {
+        if (typeof(data) !== "string") {
+            data = JSON.stringify(data);
+        }
+        channel.transport.send(data);
+    }
+
+    this.transport.onmessage = function(message)
+    {
+        var data = message.data;
+        if (typeof data === "string") {
+            data = JSON.parse(data);
+        }
+        switch (data.type) {
+            case QWebChannelMessageTypes.signal:
+                channel.handleSignal(data);
+                break;
+            case QWebChannelMessageTypes.response:
+                channel.handleResponse(data);
+                break;
+            case QWebChannelMessageTypes.propertyUpdate:
+                channel.handlePropertyUpdate(data);
+                break;
+            default:
+                console.error("invalid message received:", message.data);
+                break;
+        }
+    }
+
+    this.execCallbacks = {};
+    this.execId = 0;
+    this.exec = function(data, callback)
+    {
+        if (!callback) {
+            // if no callback is given, send directly
+            channel.send(data);
+            return;
+        }
+        if (channel.execId === Number.MAX_VALUE) {
+            // wrap
+            channel.execId = Number.MIN_VALUE;
+        }
+        if (data.hasOwnProperty("id")) {
+            console.error("Cannot exec message with property id: " + JSON.stringify(data));
+            return;
+        }
+        data.id = channel.execId++;
+        channel.execCallbacks[data.id] = callback;
+        channel.send(data);
+    };
+
+    this.objects = {};
+
+    this.handleSignal = function(message)
+    {
+        var object = channel.objects[message.object];
+        if (object) {
+            object.signalEmitted(message.signal, message.args);
+        } else {
+            console.warn("Unhandled signal: " + message.object + "::" + message.signal);
+        }
+    }
+
+    this.handleResponse = function(message)
+    {
+        if (!message.hasOwnProperty("id")) {
+            console.error("Invalid response message received: ", JSON.stringify(message));
+            return;
+        }
+        channel.execCallbacks[message.id](message.data);
+        delete channel.execCallbacks[message.id];
+    }
+
+    this.handlePropertyUpdate = function(message)
+    {
+        message.data.forEach(data => {
+            var object = channel.objects[data.object];
+            if (object) {
+                object.propertyUpdate(data.signals, data.properties);
+            } else {
+                console.warn("Unhandled property update: " + data.object + "::" + data.signal);
+            }
+        });
+        channel.exec({type: QWebChannelMessageTypes.idle});
+    }
+
+    this.debug = function(message)
+    {
+        channel.send({type: QWebChannelMessageTypes.debug, data: message});
+    };
+
+    channel.exec({type: QWebChannelMessageTypes.init}, function(data) {
+        for (const objectName of Object.keys(data)) {
+            new QObject(objectName, data[objectName], channel);
+        }
+
+        // now unwrap properties, which might reference other registered objects
+        for (const objectName of Object.keys(channel.objects)) {
+            channel.objects[objectName].unwrapProperties();
+        }
+
+        if (initCallback) {
+            initCallback(channel);
+        }
+        channel.exec({type: QWebChannelMessageTypes.idle});
+    });
+};
+
+function QObject(name, data, webChannel)
+{
+    this.__id__ = name;
+    webChannel.objects[name] = this;
+
+    // List of callbacks that get invoked upon signal emission
+    this.__objectSignals__ = {};
+
+    // Cache of all properties, updated when a notify signal is emitted
+    this.__propertyCache__ = {};
+
+    var object = this;
+
+
+
+    this.unwrapQObject = function(response)
+    {
+        if (response instanceof Array) {
+            // support list of objects
+            return response.map(qobj => object.unwrapQObject(qobj))
+        }
+        if (!(response instanceof Object))
+            return response;
+
+        if (!response["__QObject*__"] || response.id === undefined) {
+            var jObj = {};
+            for (const propName of Object.keys(response)) {
+                jObj[propName] = object.unwrapQObject(response[propName]);
+            }
+            return jObj;
+        }
+
+        var objectId = response.id;
+        if (webChannel.objects[objectId])
+            return webChannel.objects[objectId];
+
+        if (!response.data) {
+            console.error("Cannot unwrap unknown QObject " + objectId + " without data.");
+            return;
+        }
+
+        var qObject = new QObject( objectId, response.data, webChannel );
+        qObject.destroyed.connect(function() {
+            if (webChannel.objects[objectId] === qObject) {
+                delete webChannel.objects[objectId];
+                // reset the now deleted QObject to an empty {} object
+                // just assigning {} though would not have the desired effect, but the
+                // below also ensures all external references will see the empty map
+                // NOTE: this detour is necessary to workaround QTBUG-40021
+                Object.keys(qObject).forEach(name => delete qObject[name]);
+            }
+        });
+        // here we are already initialized, and thus must directly unwrap the properties
+        qObject.unwrapProperties();
+        return qObject;
+    }
+
+    this.unwrapProperties = function()
+    {
+        for (const propertyIdx of Object.keys(object.__propertyCache__)) {
+            object.__propertyCache__[propertyIdx] = object.unwrapQObject(object.__propertyCache__[propertyIdx]);
+        }
+    }
+
+    function addSignal(signalData, isPropertyNotifySignal)
+    {
+        var signalName = signalData[0];
+        var signalIndex = signalData[1];
+        object[signalName] = {
+            connect: function(callback) {
+                if (typeof(callback) !== "function") {
+                    console.error("Bad callback given to connect to signal " + signalName);
+                    return;
+                }
+
+                object.__objectSignals__[signalIndex] = object.__objectSignals__[signalIndex] || [];
+                object.__objectSignals__[signalIndex].push(callback);
+
+                // only required for "pure" signals, handled separately for properties in propertyUpdate
+                if (isPropertyNotifySignal)
+                    return;
+
+                // also note that we always get notified about the destroyed signal
+                if (signalName === "destroyed" || signalName === "destroyed()" || signalName === "destroyed(QObject*)")
+                    return;
+
+                // and otherwise we only need to be connected only once
+                if (object.__objectSignals__[signalIndex].length == 1) {
+                    webChannel.exec({
+                        type: QWebChannelMessageTypes.connectToSignal,
+                        object: object.__id__,
+                        signal: signalIndex
+                    });
+                }
+            },
+            disconnect: function(callback) {
+                if (typeof(callback) !== "function") {
+                    console.error("Bad callback given to disconnect from signal " + signalName);
+                    return;
+                }
+                // This makes a new list. This is important because it won't interfere with
+                // signal processing if a disconnection happens while emittig a signal
+                object.__objectSignals__[signalIndex] = (object.__objectSignals__[signalIndex] || []).filter(function(c) {
+                  return c != callback;
+                });
+                if (!isPropertyNotifySignal && object.__objectSignals__[signalIndex].length === 0) {
+                    // only required for "pure" signals, handled separately for properties in propertyUpdate
+                    webChannel.exec({
+                        type: QWebChannelMessageTypes.disconnectFromSignal,
+                        object: object.__id__,
+                        signal: signalIndex
+                    });
+                }
+            }
+        };
+    }
+
+    /**
+     * Invokes all callbacks for the given signalname. Also works for property notify callbacks.
+     */
+    function invokeSignalCallbacks(signalName, signalArgs)
+    {
+        var connections = object.__objectSignals__[signalName];
+        if (connections) {
+            connections.forEach(function(callback) {
+                callback.apply(callback, signalArgs);
+            });
+        }
+    }
+
+    this.propertyUpdate = function(signals, propertyMap)
+    {
+        // update property cache
+        for (const propertyIndex of Object.keys(propertyMap)) {
+            var propertyValue = propertyMap[propertyIndex];
+            object.__propertyCache__[propertyIndex] = this.unwrapQObject(propertyValue);
+        }
+
+        for (const signalName of Object.keys(signals)) {
+            // Invoke all callbacks, as signalEmitted() does not. This ensures the
+            // property cache is updated before the callbacks are invoked.
+            invokeSignalCallbacks(signalName, signals[signalName]);
+        }
+    }
+
+    this.signalEmitted = function(signalName, signalArgs)
+    {
+        invokeSignalCallbacks(signalName, this.unwrapQObject(signalArgs));
+    }
+
+    function addMethod(methodData)
+    {
+        var methodName = methodData[0];
+        var methodIdx = methodData[1];
+
+        var invokedMethod = methodName[methodName.length - 1] === ')' ? methodIdx : methodName
+
+        object[methodName] = function() {
+            var args = [];
+            var callback;
+            var errCallback;
+            for (var i = 0; i < arguments.length; ++i) {
+                var argument = arguments[i];
+                if (typeof argument === "function")
+                    callback = argument;
+                else
+                    args.push(argument);
+            }
+
+            var result;
+
+            if (!callback && (typeof(Promise) === 'function')) {
+              result = new Promise(function(resolve, reject) {
+                callback = resolve;
+                errCallback = reject;
+              });
+            }
+
+            webChannel.exec({
+                "type": QWebChannelMessageTypes.invokeMethod,
+                "object": object.__id__,
+                "method": invokedMethod,
+                "args": args
+            }, function(response) {
+                if (response !== undefined) {
+                    var result = object.unwrapQObject(response);
+                    if (callback) {
+                        (callback)(result);
+                    }
+                } else if (errCallback) {
+                  (errCallback)();
+                }
+            });
+
+            return result;
+        };
+    }
+
+    function bindGetterSetter(propertyInfo)
+    {
+        var propertyIndex = propertyInfo[0];
+        var propertyName = propertyInfo[1];
+        var notifySignalData = propertyInfo[2];
+
+        object.__propertyCache__[propertyIndex] = propertyInfo[3];
+
+        if (notifySignalData) {
+            if (notifySignalData[0] === 1) {
+                notifySignalData[0] = propertyName + "Changed";
+            }
+            addSignal(notifySignalData, true);
+        }
+
+        Object.defineProperty(object, propertyName, {
+            configurable: true,
+            get: function () {
+                var propertyValue = object.__propertyCache__[propertyIndex];
+                if (propertyValue === undefined) {
+                    console.warn("Undefined value in property cache for property \"" + propertyName + "\" in object " + object.__id__);
+                }
+
+                return propertyValue;
+            },
+            set: function(value) {
+                if (value === undefined) {
+                    console.warn("Property setter for " + propertyName + " called with undefined value!");
+                    return;
+                }
+                object.__propertyCache__[propertyIndex] = value;
+                var valueToSend = value;
+                webChannel.exec({
+                    "type": QWebChannelMessageTypes.setProperty,
+                    "object": object.__id__,
+                    "property": propertyIndex,
+                    "value": valueToSend
+                });
+            }
+        });
+
+    }
+
+
+
+    data.methods.forEach(addMethod);
+
+    data.properties.forEach(bindGetterSetter);
+
+    data.signals.forEach(function(signal) { addSignal(signal, false); });
+
+    Object.assign(object, data.enums);
+}
+
+QObject.prototype.toJSON = function() {
+    if (this.__id__ === undefined) return {};
+    return {
+        id: this.__id__,
+        "__QObject*__": true
+    };
+};
+
+//required for use with nodejs
+if (typeof module === 'object') {
+    module.exports = {
+        QWebChannel: QWebChannel
+    };
+}
+</script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <nav id="sidebar">
+    <div id="brand">
+      <div id="orb-wrap">
         <div id="orb"></div>
-        <div>
-          <div id="brand-name">J.A.R.V.I.S</div>
-          <div id="brand-sub">MARK XXVIII</div>
+        <div id="radar-scan"></div>
+        <div id="radar-blip"></div>
+      </div>
+      <div>
+        <div id="brand-name">J.A.R.V.I.S</div>
+        <div id="brand-sub">MARK XXVIII</div>
+      </div>
+    </div>
+    <ul id="nav">
+      <li class="nav-item active" data-s="home" onclick="goTo('home')">IN&#205;CIO</li>
+      <li class="nav-item" data-s="chat" onclick="goTo('chat')">CHAT</li>
+      <li class="nav-item" data-s="alarms" onclick="goTo('alarms')">ALARMES</li>
+      <li class="nav-item" data-s="weather" onclick="goTo('weather')">CLIMA</li>
+      <li class="nav-item" data-s="calendar" onclick="goTo('calendar')">CALEND&#193;RIO</li>
+      <li class="nav-item" data-s="email" onclick="goTo('email')">EMAIL</li>
+      <!-- STATUS removed -->
+      <li class="nav-item" data-s="config" onclick="goTo('config')">CONFIG</li>
+      <li class="nav-item" data-s="library" onclick="goTo('library')">BIBLIOTECA</li>
+    </ul>
+    <div id="sidebar-bottom">
+      <div id="wave" class="hidden"><span></span><span></span><span></span><span></span><span></span></div>
+      <div id="ia-badge"><div id="ia-dot"></div><span id="ia-label">OFFLINE</span></div>
+      <button class="btn-hide" onclick="ocultarPainel()">&#x25C8; OCULTAR</button>
+    </div>
+  </nav>
+  <main id="content">
+    <header id="topbar">
+      <div id="topbar-title">IN&#205;CIO</div>
+      <div id="topbar-metrics" class="offline">SISTEMA OFFLINE</div>
+    </header>
+
+    <!-- HOME / DASHBOARD -->
+    <section class="page active" id="page-home">
+      <div class="home-wrap">
+        <div class="home-metrics-bar">
+          <div class="hm-item"><div class="hm-lbl">CPU</div><div class="hm-val" id="hm-cpu">--</div><div class="hm-bar"><div class="hm-fill" id="hm-bar-cpu"></div></div><div class="hm-pct" id="hm-pct-cpu">--%</div></div>
+          <div class="hm-item"><div class="hm-lbl">RAM</div><div class="hm-val" id="hm-ram">--</div><div class="hm-bar"><div class="hm-fill" id="hm-bar-ram"></div></div><div class="hm-pct" id="hm-pct-ram">--%</div></div>
+          <div class="hm-item"><div class="hm-lbl">DISCO</div><div class="hm-val" id="hm-disk">--</div><div class="hm-bar"><div class="hm-fill" id="hm-bar-disk"></div></div><div class="hm-pct" id="hm-pct-disk">--%</div></div>
+          <div class="hm-item" id="hm-card-bat"><div class="hm-lbl">BATERIA</div><div class="hm-val" id="hm-bat">--</div><div class="hm-bar"><div class="hm-fill" id="hm-bar-bat"></div></div><div class="hm-pct" id="hm-pct-bat">--%</div></div>
+          <div class="hm-item"><div class="hm-lbl">TEMP</div><div class="hm-val" id="hm-temp">--</div><div class="hm-bar"><div class="hm-fill" id="hm-bar-temp"></div></div><div class="hm-pct" id="hm-pct-temp">&#176;C</div></div>
+          <div class="hm-item"><div class="hm-lbl">GPU</div><div class="hm-val" id="hm-gpu">--</div><div class="hm-bar"><div class="hm-fill" id="hm-bar-gpu"></div></div><div class="hm-pct" id="hm-pct-gpu">--%</div></div>
+        </div>
+        <div class="home-strip" id="hm-status-bar">
+          <span id="hm-lm-status">&#x25C9; VERIFICANDO LM STUDIO...</span>
+          <span id="hm-uptime">&#x23F1; ATIVO: --</span>
+          <span id="hm-internet">&#x1F310; REDE: --</span>
+        </div>
+        <div class="home-log-wrap">
+          <div class="home-log-hdr">&#x25B8; LOG DE ATIVIDADES</div>
+          <div id="hm-log"></div>
+        </div>
+        <div class="home-security">
+          <div class="sec-header"><div class="sec-title">&#x25C8; SENTINELA &#xB7; SEGURAN&#199;A DE REDE</div><div style="display:flex;align-items:center;gap:8px"><label class="toggle-wrap" title="Ativar/Desativar Sentinela"><input type="checkbox" id="sec-toggle" onchange="toggleSentinela(this.checked)"><span class="toggle-slider"></span></label><span id="sec-status" class="offline">DESATIVADO</span></div></div>
+          <div class="sec-grid">
+            <div class="sec-card" id="sec-dispositivos">
+              <div class="sec-card-hdr">&#x1F4E1; DISPOSITIVOS NA REDE</div>
+              <div class="sec-card-body"><span class="sec-count" id="sec-dev-count">--</span><span class="sec-label">dispositivos</span></div>
+              <div class="sec-list" id="sec-dev-list"></div>
+            </div>
+            <div class="sec-card" id="sec-trackers">
+              <div class="sec-card-hdr">&#x1F50D; RASTREADORES</div>
+              <div class="sec-card-body"><span class="sec-count" id="sec-trk-count">--</span><span class="sec-label">trackers ativos</span></div>
+              <div class="sec-list" id="sec-trk-list"></div>
+            </div>
+            <div class="sec-card" id="sec-conexoes">
+              <div class="sec-card-hdr">&#x26A1; CONEX&#213;ES SUSPEITAS</div>
+              <div class="sec-card-body"><span class="sec-count" id="sec-con-count">--</span><span class="sec-label">suspeitas</span></div>
+              <div class="sec-list" id="sec-con-list"></div>
+            </div>
+            <div class="sec-card" id="sec-firewall">
+              <div class="sec-card-hdr">&#x1F6E1; FIREWALL</div>
+              <div class="sec-card-body"><span class="sec-count" id="sec-fw-status">--</span><span class="sec-label" id="sec-fw-label">status</span></div>
+              <div class="sec-list" id="sec-fw-list"></div>
+            </div>
+          </div>
         </div>
       </div>
-      <ul id="nav">
-        <li class="nav-item active" data-s="chat" onclick="goTo('chat')">CHAT</li>
-        <li class="nav-item" data-s="alarms" onclick="goTo('alarms')">ALARMES</li>
-        <li class="nav-item" data-s="weather" onclick="goTo('weather')">CLIMA</li>
-        <li class="nav-item" data-s="status" onclick="goTo('status')">STATUS</li>
-        <li class="nav-item" data-s="config" onclick="goTo('config')">CONFIG</li>
-        <li class="nav-item" data-s="library" onclick="goTo('library')">BIBLIOTECA</li>
-      </ul>
-      <div id="sidebar-bottom">
-        <div id="wave" class="hidden">
-          <span></span><span></span><span></span><span></span><span></span>
-        </div>
-        <div id="ia-badge">
-          <div id="ia-dot"></div>
-          <span id="ia-label">OFFLINE</span>
-        </div>
-        <button class="btn-hide" onclick="ocultarPainel()">◈ OCULTAR</button>
+    </section>
+
+    <!-- CHAT -->
+    <section class="page" id="page-chat">
+      <div id="chat-msgs">
+        <div class="msg ai"><div class="avatar">J</div><div class="bubble">Sistemas online. Aguardando suas diretrizes, Senhor.</div></div>
       </div>
-    </nav>
-    <main id="content">
-        <header id="topbar">
-            <div id="topbar-title">CHAT</div>
-            <div id="topbar-metrics">SISTEMA ONLINE</div>
-        </header>
+      <div id="chat-bar">
+        <textarea id="chat-in" placeholder="Digite uma diretriz..." rows="1"></textarea>
+        <button onclick="enviarChat()">ENVIAR â–¶</button>
+      </div>
+    </section>
 
-        <section class="page active" id="page-chat">
-        <div id="chat-msgs">
-            <div class="msg ai">
-            <div class="avatar">J</div>
-            <div class="bubble">Sistemas online. Aguardando suas diretrizes, Senhor.</div>
+    <!-- ALARMES -->
+    <section class="page" id="page-alarms">
+      <div class="page-inner">
+        <div class="section-hdr"><h2>&#x23F0; ALARMES</h2></div>
+        <div class="card form-card">
+          <div class="form-row">
+            <input type="time" id="alm-hora" class="field" />
+            <input type="text" id="alm-missao" class="field" placeholder="Miss&#227;o / Motivo" />
+            <input type="date" id="alm-data" class="field" />
+          </div>
+          <div class="form-row">
+            <label class="chk-label"><input type="checkbox" id="alm-rep" /> Repetir</label>
+            <div class="dias-wrap">
+              <button class="dia-btn" data-d="0">Seg</button>
+              <button class="dia-btn" data-d="1">Ter</button>
+              <button class="dia-btn" data-d="2">Qua</button>
+              <button class="dia-btn" data-d="3">Qui</button>
+              <button class="dia-btn" data-d="4">Sex</button>
+              <button class="dia-btn" data-d="5">S&#225;b</button>
+              <button class="dia-btn" data-d="6">Dom</button>
             </div>
+            <button class="btn-primary" onclick="criarAlarme()">CRIAR</button>
+          </div>
         </div>
-        <div id="chat-bar">
-            <textarea id="chat-in" placeholder="Digite uma diretriz..." rows="1"></textarea>
-            <button onclick="enviarChat()">ENVIAR ▶</button>
-        </div>
-        </section>
+        <div id="alarm-list"></div>
+        <div class="row-end"><button class="btn-sm danger" onclick="limparConcluidos()">&#x1F5D1; LIMPAR CONCLU&#205;DOS</button></div>
+      </div>
+    </section>
 
-        <section class="page" id="page-alarms">
-        <div class="page-inner">
-            <div class="section-hdr">
-            <h2>⏰ ALARMES</h2>
-            </div>
-            <div class="card form-card">
-            <div class="form-row">
-                <input type="time" id="alm-hora" class="field" />
-                <input type="text" id="alm-missao" class="field" placeholder="Missão / Motivo" />
-                <input type="date" id="alm-data" class="field" />
-            </div>
-            <div class="form-row">
-                <label class="chk-label"><input type="checkbox" id="alm-rep" /> Repetir</label>
-                <div class="dias-wrap" id="dias-wrap">
-                <button class="dia-btn" data-d="0">Seg</button>
-                <button class="dia-btn" data-d="1">Ter</button>
-                <button class="dia-btn" data-d="2">Qua</button>
-                <button class="dia-btn" data-d="3">Qui</button>
-                <button class="dia-btn" data-d="4">Sex</button>
-                <button class="dia-btn" data-d="5">Sáb</button>
-                <button class="dia-btn" data-d="6">Dom</button>
-                </div>
-                <button class="btn-primary" onclick="criarAlarme()">CRIAR</button>
-            </div>
-            </div>
-            <div id="alarm-list"></div>
-            <div class="row-end">
-            <button class="btn-sm danger" onclick="limparConcluidos()">🗑 LIMPAR CONCLUÍDOS</button>
-            </div>
+    <!-- CLIMA -->
+    <section class="page" id="page-weather">
+      <div class="page-inner">
+        <div class="section-hdr"><h2>&#x2606; CLIMA</h2></div>
+        <div class="card form-card">
+          <div class="form-row">
+            <input type="text" id="wx-city" class="field" placeholder="Cidade (ex: Porto Alegre)" />
+            <button class="btn-primary" onclick="buscarClima()">BUSCAR</button>
+          </div>
         </div>
-        </section>
+        <div id="wx-result"></div>
+      </div>
+    </section>
 
-        <section class="page" id="page-weather">
-        <div class="page-inner">
-            <div class="section-hdr">
-            <h2>◆ CLIMA</h2>
-            </div>
-            <div class="card form-card">
-            <div class="form-row">
-                <input type="text" id="wx-city" class="field" placeholder="Cidade (ex: Porto Alegre)" />
-                <button class="btn-primary" onclick="buscarClima()">BUSCAR</button>
-            </div>
-            </div>
-            <div id="wx-result"></div>
+    <!-- CALEND&#193;RIO -->
+    <section class="page" id="page-calendar">
+      <div class="page-inner">
+        <div class="section-hdr"><h2>&#x1F4C5; CALEND&#193;RIO</h2></div>
+        <div class="card form-card">
+          <div class="form-row">
+            <input type="date" id="cal-data" class="field" />
+            <input type="text" id="cal-titulo" class="field" placeholder="T&#237;tulo do evento" />
+            <input type="time" id="cal-hora" class="field" style="max-width:130px" />
+            <button class="btn-primary" onclick="adicionarEvento()">ADICIONAR</button>
+          </div>
         </div>
-        </section>
+        <div class="form-row" style="gap:8px">
+          <input type="date" id="cal-filtro" class="field" style="max-width:200px" />
+          <button class="btn-sm" onclick="carregarEventos()">ðŸ“¥ ATUALIZAR</button>
+        </div>
+        <div id="cal-lista"></div>
+      </div>
+    </section>
 
-        <section class="page" id="page-status">
-        <div class="page-inner">
-            <div class="section-hdr">
-            <h2>▣ STATUS DO SISTEMA</h2>
-            </div>
-            <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-lbl">CPU</div>
-                <div class="stat-val" id="st-cpu">--</div>
-                <div class="stat-unit">%</div>
-                <div class="bar-wrap"><div class="bar-fill" id="st-bar-cpu"></div></div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-lbl">RAM</div>
-                <div class="stat-val" id="st-ram">--</div>
-                <div class="stat-unit">%</div>
-                <div class="bar-wrap"><div class="bar-fill" id="st-bar-ram"></div></div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-lbl">BATERIA</div>
-                <div class="stat-val" id="st-bat">--</div>
-                <div class="stat-unit">%</div>
-                <div class="bar-wrap"><div class="bar-fill" id="st-bar-bat"></div></div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-lbl">DISCO</div>
-                <div class="stat-val" id="st-disk">--</div>
-                <div class="stat-unit">%</div>
-                <div class="bar-wrap"><div class="bar-fill" id="st-bar-disk"></div></div>
-            </div>
-            </div>
-            <div id="st-ia" class="card" style="margin-top: 16px; padding: 16px">
-            <div class="stat-lbl">MODO IA</div>
-            <div id="st-ia-info" style="margin-top: 6px; font-size: 13px; opacity: 0.8">Verificando...</div>
-            </div>
+    <!-- EMAIL -->
+    <section class="page" id="page-email">
+      <div class="page-inner">
+        <div class="section-hdr"><h2>&#x2709; EMAIL</h2></div>
+        <div class="card form-card">
+          <div class="cfg-hdr">CONFIGURA&#199;&#195;O IMAP</div>
+          <div class="form-row">
+            <input class="field" id="mail-host" placeholder="imap.gmail.com" />
+            <input class="field" id="mail-user" placeholder="seu@email.com" />
+            <input class="field" id="mail-pass" type="password" placeholder="Senha" />
+            <button class="btn-sm" onclick="salvarConfigEmail()">SALVAR</button>
+          </div>
         </div>
-        </section>
+        <div class="form-row" style="gap:8px">
+          <button class="btn-primary" onclick="verificarEmail()">ðŸ“¥ VERIFICAR EMAIL</button>
+        </div>
+        <div id="mail-lista"></div>
+      </div>
+    </section>
 
-        <section class="page" id="page-config">
-        <div class="page-inner">
-            <div class="section-hdr">
-            <h2>⚙ CONFIGURAÇÕES</h2>
+    <!-- CONFIG -->
+    <section class="page" id="page-config">
+      <div class="page-inner">
+        <div class="section-hdr"><h2>&#x2699; CONFIGURA&#199;&#213;ES</h2></div>
+        <div class="cfg-grid">
+          <div class="card cfg-card">
+            <div class="cfg-hdr">IDENTIDADE</div>
+            <div class="cfg-field"><label>NOME DO MESTRE</label><div class="field-row-inline"><input class="field" id="cfg-nome" placeholder="Ex: David" /><button class="btn-sm" onclick="salvarConfig('nome_mestre','cfg-nome',this)">SALVAR</button></div></div>
+            <div class="cfg-field"><label>CIDADE PADR&#195;O (CLIMA)</label><div class="field-row-inline"><input class="field" id="cfg-cidade" placeholder="Ex: Porto Alegre" /><button class="btn-sm" onclick="salvarConfig('cidade_padrao','cfg-cidade',this)">SALVAR</button></div></div>
+          </div>
+          <div class="card cfg-card">
+            <div class="cfg-hdr">CHAVES DE IA</div>
+            <div class="cfg-field"><label>GEMINI API KEY</label><div class="field-row-inline"><input class="field" id="cfg-gemini" type="password" placeholder="AIza..." /><button class="btn-sm" onclick="salvarConfig('gemini','cfg-gemini',this)">SALVAR</button></div></div>
+            <div class="cfg-field"><label>QWEN / OPENROUTER KEY</label><div class="field-row-inline"><input class="field" id="cfg-qwen" type="password" placeholder="sk-or-..." /><button class="btn-sm" onclick="salvarConfig('qwen','cfg-qwen',this)">SALVAR</button></div></div>
+          </div>
+          <div class="card cfg-card">
+            <div class="cfg-hdr">VOZ &amp; MIC</div>
+            <div class="cfg-field"><label>VOZ TTS</label><div class="field-row-inline"><input class="field" id="cfg-voz" placeholder="pt-BR-AntonioNeural" /><button class="btn-sm" onclick="salvarConfig('voz','cfg-voz',this)">SALVAR</button></div></div>
+            <div class="cfg-field"><label>MODELO WHISPER</label><div class="field-row-inline"><select class="field" id="cfg-whisper"><option>tiny</option><option>base</option><option selected>small</option><option>medium</option><option>large</option></select><button class="btn-sm" onclick="salvarConfig('whisper_model','cfg-whisper',this)">SALVAR</button></div></div>
+          </div>
+          <div class="card cfg-card"><div class="cfg-hdr">OPENWEATHER</div><div class="cfg-field"><label>API KEY</label><div class="field-row-inline"><input class="field" id="cfg-owm" type="password" placeholder="..." /><button class="btn-sm" onclick="salvarConfig('openweather_api_key','cfg-owm',this)">SALVAR</button></div></div></div>
+          <div class="card cfg-card">
+            <div class="cfg-hdr">SPOTIFY</div>
+            <div class="cfg-field"><label>CLIENT ID</label><div class="field-row-inline"><input class="field" id="cfg-sp-id" placeholder="..." /><button class="btn-sm" onclick="salvarConfig('spotify_id','cfg-sp-id',this)">SALVAR</button></div></div>
+            <div class="cfg-field"><label>CLIENT SECRET</label><div class="field-row-inline"><input class="field" id="cfg-sp-sec" type="password" placeholder="..." /><button class="btn-sm" onclick="salvarConfig('spotify_sec','cfg-sp-sec',this)">SALVAR</button></div></div>
+          </div>
+          <div class="card cfg-card"><div class="cfg-hdr">SMARTTHINGS</div><div class="cfg-field"><label>TOKEN</label><div class="field-row-inline"><input class="field" id="cfg-st" type="password" placeholder="..." /><button class="btn-sm" onclick="salvarConfig('smartthings','cfg-st',this)">SALVAR</button></div></div></div>
+          <div class="card cfg-card">
+            <div class="cfg-hdr">NOT&#205;CIAS / BRIEFING</div>
+            <div class="cfg-field"><label>NOT&#205;CIAS NO BRIEFING</label><div class="field-row-inline"><select class="field" id="cfg-news"><option value="true">Sim</option><option value="false">N&#227;o</option></select><button class="btn-sm" onclick="salvarConfig('news_ativo','cfg-news',this)">SALVAR</button></div></div>
+            <div class="cfg-field"><label>BRIEFING AUTOM&#193;TICO</label><div class="field-row-inline"><select class="field" id="cfg-briefing"><option value="true">Sim</option><option value="false">N&#227;o</option></select><button class="btn-sm" onclick="salvarConfig('briefing_auto','cfg-briefing',this)">SALVAR</button></div></div>
+            <div class="cfg-field"><label>POMODORO PADR&#195;O</label><div class="field-row-inline"><input class="field" id="cfg-pomodoro" type="number" placeholder="25" /><button class="btn-sm" onclick="salvarConfig('pomodoro_padrao','cfg-pomodoro',this)">SALVAR</button></div></div>
+          </div>
+          <div class="card cfg-card">
+            <div class="cfg-hdr">EMAIL</div>
+            <div class="cfg-field"><label>ATIVAR NO BRIEFING</label><div class="field-row-inline"><select class="field" id="cfg-email-ativo"><option value="true">Sim</option><option value="false">N&#227;o</option></select><button class="btn-sm" onclick="salvarConfig('email_ativo','cfg-email-ativo',this)">SALVAR</button></div></div>
+            <div class="cfg-field"><label>HOST IMAP</label><div class="field-row-inline"><input class="field" id="cfg-email-host" placeholder="imap.gmail.com" /><button class="btn-sm" onclick="salvarConfig('email_imap_host','cfg-email-host',this)">SALVAR</button></div></div>
+            <div class="cfg-field"><label>USU&#193;RIO</label><div class="field-row-inline"><input class="field" id="cfg-email-user" placeholder="seu@email.com" /><button class="btn-sm" onclick="salvarConfig('email_user','cfg-email-user',this)">SALVAR</button></div></div>
+            <div class="cfg-field"><label>SENHA</label><div class="field-row-inline"><input class="field" id="cfg-email-pass" type="password" placeholder="..." /><button class="btn-sm" onclick="salvarConfig('email_pass','cfg-email-pass',this)">SALVAR</button></div></div>
+          </div>
+          <div class="card cfg-card">
+            <div class="cfg-hdr">CALEND&#193;RIO</div>
+            <div class="cfg-field"><label>ATIVAR NO BRIEFING</label><div class="field-row-inline"><select class="field" id="cfg-cal-ativo"><option value="true">Sim</option><option value="false">N&#227;o</option></select><button class="btn-sm" onclick="salvarConfig('calendar_ativo','cfg-cal-ativo',this)">SALVAR</button></div></div>
+            <div class="cfg-field"><label>CAMINHO .ICS</label><div class="field-row-inline"><input class="field" id="cfg-cal-ics" placeholder="C:/calendario.ics" /><button class="btn-sm" onclick="salvarConfig('calendar_ics_path','cfg-cal-ics',this)">SALVAR</button></div></div>
+          </div>
+          <div class="card cfg-card">
+            <div class="cfg-hdr">TELEGRAM</div>
+            <div class="cfg-field"><label>BOT TOKEN</label><div class="field-row-inline"><input class="field" id="cfg-tg" type="password" placeholder="..." /><button class="btn-sm" onclick="salvarConfig('telegram_token','cfg-tg',this)">SALVAR</button></div></div>
+            <div class="cfg-field"><label>AUTH TOKEN</label><div class="field-row-inline"><input class="field" id="cfg-tg-auth" type="password" placeholder="..." /><button class="btn-sm" onclick="salvarConfig('telegram_auth_token','cfg-tg-auth',this)">SALVAR</button></div></div>
+          </div>
+          <div class="card cfg-card">
+            <div class="cfg-hdr">MODO IA</div>
+            <div class="ia-btns">
+              <button class="btn-ia" onclick="trocarIA('ollama')">OLLAMA</button>
+              <button class="btn-ia" onclick="trocarIA('gemini')">GEMINI</button>
+              <button class="btn-ia" onclick="trocarIA('qwen')">QWEN</button>
+              <button class="btn-ia" onclick="trocarIA('auto')">AUTO</button>
             </div>
-            <div class="cfg-grid">
-            <div class="card cfg-card">
-                <div class="cfg-hdr">IDENTIDADE</div>
-                <div class="cfg-field">
-                <label>NOME DO MESTRE</label>
-                <div class="field-row-inline">
-                    <input class="field" id="cfg-nome" placeholder="Ex: David" />
-                    <button class="btn-sm" onclick="salvar('nome_mestre', 'cfg-nome', this)">SALVAR</button>
-                </div>
-                </div>
-                <div class="cfg-field">
-                <label>CIDADE PADRÃO (CLIMA)</label>
-                <div class="field-row-inline">
-                    <input class="field" id="cfg-cidade" placeholder="Ex: Porto Alegre" />
-                    <button class="btn-sm" onclick="salvar('cidade_padrao', 'cfg-cidade', this)">SALVAR</button>
-                </div>
-                </div>
-            </div>
-            <div class="card cfg-card">
-                <div class="cfg-hdr">CHAVES DE IA</div>
-                <div class="cfg-field">
-                <label>GEMINI API KEY</label>
-                <div class="field-row-inline">
-                    <input class="field" id="cfg-gemini" type="password" placeholder="AIza..." />
-                    <button class="btn-sm" onclick="salvar('gemini', 'cfg-gemini', this)">SALVAR</button>
-                </div>
-                </div>
-                <div class="cfg-field">
-                <label>QWEN / OPENROUTER KEY</label>
-                <div class="field-row-inline">
-                    <input class="field" id="cfg-qwen" type="password" placeholder="sk-or-..." />
-                    <button class="btn-sm" onclick="salvar('qwen', 'cfg-qwen', this)">SALVAR</button>
-                </div>
-                </div>
-            </div>
-            <div class="card cfg-card">
-                <div class="cfg-hdr">VOZ &amp; MIC</div>
-                <div class="cfg-field">
-                <label>VOZ TTS</label>
-                <div class="field-row-inline">
-                    <input class="field" id="cfg-voz" placeholder="pt-BR-AntonioNeural" />
-                    <button class="btn-sm" onclick="salvar('voz', 'cfg-voz', this)">SALVAR</button>
-                </div>
-                </div>
-                <div class="cfg-field">
-                <label>MODELO WHISPER</label>
-                <div class="field-row-inline">
-                    <select class="field" id="cfg-whisper">
-                    <option>tiny</option>
-                    <option>base</option>
-                    <option selected>small</option>
-                    <option>medium</option>
-                    <option>large</option>
-                    </select>
-                    <button class="btn-sm" onclick="salvar('whisper_model', 'cfg-whisper', this)">SALVAR</button>
-                </div>
-                </div>
-                <button class="btn-sm" style="margin-top: 8px" onclick="testarVoz()">▶ TESTAR VOZ</button>
-            </div>
-            <div class="card cfg-card">
-                <div class="cfg-hdr">OPENWEATHER</div>
-                <div class="cfg-field">
-                <label>API KEY</label>
-                <div class="field-row-inline">
-                    <input class="field" id="cfg-owm" type="password" placeholder="..." />
-                    <button class="btn-sm" onclick="salvar('openweather_api_key', 'cfg-owm', this)">SALVAR</button>
-                </div>
-                </div>
-            </div>
-            <div class="card cfg-card">
-                <div class="cfg-hdr">SPOTIFY</div>
-                <div class="cfg-field">
-                <label>CLIENT ID</label>
-                <div class="field-row-inline">
-                    <input class="field" id="cfg-sp-id" placeholder="..." />
-                    <button class="btn-sm" onclick="salvar('spotify_id', 'cfg-sp-id', this)">SALVAR</button>
-                </div>
-                </div>
-                <div class="cfg-field">
-                <label>CLIENT SECRET</label>
-                <div class="field-row-inline">
-                    <input class="field" id="cfg-sp-sec" type="password" placeholder="..." />
-                    <button class="btn-sm" onclick="salvar('spotify_sec', 'cfg-sp-sec', this)">SALVAR</button>
-                </div>
-                </div>
-            </div>
-            <div class="card cfg-card">
-                <div class="cfg-hdr">SMARTTHINGS (TV)</div>
-                <div class="cfg-field">
-                <label>TOKEN</label>
-                <div class="field-row-inline">
-                    <input class="field" id="cfg-st" type="password" placeholder="..." />
-                    <button class="btn-sm" onclick="salvar('smartthings', 'cfg-st', this)">SALVAR</button>
-                </div>
-                </div>
-            </div>
-            <div class="card cfg-card">
-                <div class="cfg-hdr">TELEGRAM</div>
-                <div class="cfg-field">
-                <label>BOT TOKEN</label>
-                <div class="field-row-inline">
-                    <input class="field" id="cfg-tg" type="password" placeholder="..." />
-                    <button class="btn-sm" onclick="salvar('telegram_token', 'cfg-tg', this)">SALVAR</button>
-                </div>
-                </div>
-                <div class="cfg-field">
-                <label>AUTH TOKEN</label>
-                <div class="field-row-inline">
-                    <input class="field" id="cfg-tg-auth" type="password" placeholder="..." />
-                    <button class="btn-sm" onclick="salvar('telegram_auth_token', 'cfg-tg-auth', this)">SALVAR</button>
-                </div>
-                </div>
-            </div>
-            <div class="card cfg-card">
-                <div class="cfg-hdr">MODO IA</div>
-                <div class="ia-btns">
-                <button class="btn-ia" onclick="trocarIA('ollama')">OLLAMA</button>
-                <button class="btn-ia" onclick="trocarIA('gemini')">GEMINI</button>
-                <button class="btn-ia" onclick="trocarIA('qwen')">QWEN</button>
-                <button class="btn-ia" onclick="trocarIA('auto')">AUTO</button>
-                </div>
-            </div>
-            </div>
+          </div>
         </div>
-        </section>
+      </div>
+    </section>
 
-        <section class="page" id="page-library">
-        <div class="page-inner">
-            <div class="section-hdr"><h2>BIBLIOTECA DE COMANDOS</h2></div>
-            <div class="card form-card">
-            <div class="form-row">
-                <input type="text" id="lib-busca" class="field" placeholder="Buscar comando..." oninput="filtrarLib()" />
-                <select id="lib-cat" class="field" style="max-width: 160px" onchange="filtrarLib()">
-                <option value="">Todas</option>
-                <option value="Sistema">Sistema</option>
-                <option value="TV">TV</option>
-                <option value="Spotify">Spotify</option>
-                <option value="Web">Web</option>
-                <option value="Monitor">Monitor</option>
-                <option value="Alarme">Alarme</option>
-                </select>
-            </div>
-            </div>
-            <div id="lib-list"></div>
+    <!-- BIBLIOTECA -->
+    <section class="page" id="page-library">
+      <div class="page-inner">
+        <div class="section-hdr"><h2>BIBLIOTECA DE COMANDOS</h2></div>
+        <div class="card form-card">
+          <div class="form-row">
+            <input type="text" id="lib-busca" class="field" placeholder="Buscar comando..." oninput="filtrarLib()" />
+            <select id="lib-cat" class="field" style="max-width:160px" onchange="filtrarLib()">
+              <option value="">Todas</option><option value="Sistema">Sistema</option><option value="TV">TV</option><option value="Spotify">Spotify</option><option value="Web">Web</option><option value="Monitor">Monitor</option><option value="Alarme">Alarme</option>
+            </select>
+          </div>
         </div>
-        </section>
-    </main>
-    <div id="toast"></div>
-    <script src="app.js"></script>
-  </body>
+        <div id="lib-list"></div>
+      </div>
+    </section>
+  </main>
+  <div id="toast"></div>
+  <script src="app.js"></script>
+</body>
 </html>

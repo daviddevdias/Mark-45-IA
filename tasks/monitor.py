@@ -37,7 +37,7 @@ def conectar_banco_monitor() -> sqlite3.Connection:
         "CREATE TABLE IF NOT EXISTS alertas (id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL, tipo TEXT NOT NULL, mensagem TEXT NOT NULL, valor REAL)"
     )
     c.execute(
-        "CREATE TABLE IF NOT EXISTS metrics (id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL, cpu REAL, ram REAL, disk REAL, temp REAL, net_sent REAL, net_recv REAL, processes INTEGER)"
+        "CREATE TABLE IF NOT EXISTS metrics (id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL, cpu REAL, ram REAL, disk REAL, temp REAL, net_sent REAL, net_recv REAL, processes INTEGER, gpu_percent REAL, gpu_temp REAL, gpu_mem REAL)"
     )
     c.commit()
     return c
@@ -55,12 +55,12 @@ def registrar_log_alerta(tipo: str, mensagem: str, valor: float = 0.0):
         pass
 
 
-def registrar_metricas_no_banco(cpu, ram, disk, temp, net_sent, net_recv, processes):
+def registrar_metricas_no_banco(cpu, ram, disk, temp, net_sent, net_recv, processes, gpu_percent=0, gpu_temp=0, gpu_mem=0):
     try:
         with conectar_banco_monitor() as c:
             c.execute(
-                "INSERT INTO metrics (ts, cpu, ram, disk, temp, net_sent, net_recv, processes) VALUES (?,?,?,?,?,?,?,?)",
-                (datetime.now().isoformat(timespec="seconds"), cpu, ram, disk, temp, net_sent, net_recv, processes),
+                "INSERT INTO metrics (ts, cpu, ram, disk, temp, net_sent, net_recv, processes, gpu_percent, gpu_temp, gpu_mem) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (datetime.now().isoformat(timespec="seconds"), cpu, ram, disk, temp, net_sent, net_recv, processes, gpu_percent, gpu_temp, gpu_mem),
             )
             c.commit()
     except:
@@ -106,32 +106,62 @@ def check_internet() -> bool:
 
 def obter_temperatura_cpu() -> float | None:
     try:
-        t = psutil.sensors_temperatures()
-        if t:
-            for n in ("k10temp", "coretemp", "cpu_thermal", "acpitz", "zenpower"):
-                if n in t and t[n]:
-                    return t[n][0].current
-            for n, e in t.items():
-                if e and "cpu" in n.lower():
-                    return e[0].current
+        import wmi
+        sensores = wmi.WMI(namespace="root\\OpenHardwareMonitor").Sensor()
+        temps = [
+            float(s.Value)
+            for s in sensores
+            if getattr(s, "SensorType", "") == "Temperature"
+            and "cpu" in getattr(s, "Name", "").lower()
+        ]
+        if temps:
+            return max(temps)
     except:
         pass
-    if platform.system().lower() == "windows":
-        try:
-            import wmi
-
-            sensores = wmi.WMI(namespace="root\\OpenHardwareMonitor").Sensor()
-            temps = [
-                float(s.Value)
-                for s in sensores
-                if getattr(s, "SensorType", "") == "Temperature"
-                and "cpu" in getattr(s, "Name", "").lower()
-            ]
-            if temps:
-                return max(temps)
-        except:
-            pass
     return None
+
+def obter_gpu() -> dict:
+    info = {"gpu_percent": 0, "gpu_temp": 0, "gpu_mem": 0, "gpu_nome": ""}
+    # Tenta NVIDIA via GPUtil primeiro
+    try:
+        import GPUtil
+        gpus = GPUtil.getGPUs()
+        if gpus:
+            g = gpus[0]
+            info["gpu_percent"] = round(g.load * 100, 1)
+            info["gpu_temp"] = round(g.temperature, 1)
+            info["gpu_mem"] = round(g.memoryUtil * 100, 1)
+            info["gpu_nome"] = g.name or ""
+            return info
+    except:
+        pass
+    # Fallback WMI para AMD/Intel no Windows
+    try:
+        import wmi
+        c = wmi.WMI()
+        for gpu in c.Win32_VideoController():
+            nome = (gpu.Name or "").strip()
+            if nome:
+                info["gpu_nome"] = nome
+            # Tenta uso via contador de performance (Win10/11)
+            try:
+                perf = wmi.WMI(namespace="root\\cimv2")
+                engines = perf.Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine()
+                total = 0.0
+                count = 0
+                for e in engines:
+                    if hasattr(e, 'PercentTime') and e.PercentTime:
+                        total += float(e.PercentTime)
+                        count += 1
+                if count:
+                    info["gpu_percent"] = round(total / count, 1)
+            except:
+                pass
+            # Só pega o primeiro adaptador
+            break
+    except:
+        pass
+    return info
 
 
 def _raiz_disco() -> str:
@@ -262,7 +292,8 @@ def monitorar_proativo():
             temp = obter_temperatura_cpu() or 0.0
             sent, recv = obter_velocidade_rede()
             procs = len(psutil.pids())
-            registrar_metricas_no_banco(cpu, ram, disk, temp, sent, recv, procs)
+            gpu = obter_gpu()
+            registrar_metricas_no_banco(cpu, ram, disk, temp, sent, recv, procs, gpu["gpu_percent"], gpu["gpu_temp"], gpu["gpu_mem"])
             stats = {
                 "cpu": cpu,
                 "ram": ram,
@@ -275,6 +306,10 @@ def monitorar_proativo():
                 "carregando": (psutil.sensors_battery().power_plugged if psutil.sensors_battery() else None),
                 "rede_sent_kbps": round(sent / 1024, 1),
                 "rede_recv_kbps": round(recv / 1024, 1),
+                "gpu_percent": gpu["gpu_percent"],
+                "gpu_temp": gpu["gpu_temp"],
+                "gpu_mem": gpu["gpu_mem"],
+                "gpu_nome": gpu["gpu_nome"],
             }
             _historico_stats.append(stats)
             if len(_historico_stats) > MAX_HISTORICO:
@@ -304,6 +339,10 @@ def status_hardware() -> dict:
         "rede_recv_kbps": cached.get("rede_recv_kbps"),
         "top_processos": [],
         "alertas": {k: v for k, v in ALERTAS.items() if v},
+        "gpu_percent": cached.get("gpu_percent", 0),
+        "gpu_temp": cached.get("gpu_temp", 0),
+        "gpu_mem": cached.get("gpu_mem", 0),
+        "gpu_nome": cached.get("gpu_nome", ""),
     }
 
 

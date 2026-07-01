@@ -29,6 +29,8 @@ SYSTEM = (
     "  'Quer que eu pesquise para você, senhor? Ou quer uma breve explicação?'\n"
     "- Se ele disser 'pesquisa' ou 'pesquise' ou 'sim' → use a função web_search com o termo da pergunta anterior.\n"
     "- Se ele disser 'explicação' ou 'explique' → responda com uma explicação curta e clara.\n"
+    "- Você tem acesso a: notícias, email, calendário, foco/pomodoro, terminal, comandos customizados.\n"
+    "- Se o usuário pedir 'notícias', 'briefing', 'eventos', 'email', 'foco' — São comandos diretos, responda com o resultado.\n"
     "Exemplo bom:\n"
     "  User: 'o que é lógica de programação?'\n"
     "  Você: 'Quer que eu pesquise para você, senhor? Ou quer uma breve explicação?'\n"
@@ -592,6 +594,115 @@ async def monitor_status(cmd: str) -> str:
     return status_resumo_texto()
 
 
+async def pesquisar_web_explicacao(cmd: str) -> str:
+    return await pesquisar_web(cmd)
+
+
+async def comando_foco(cmd: str) -> str:
+    from tasks.pomodoro import iniciar_foco
+    return await iniciar_foco()
+
+
+async def comando_pausa(cmd: str) -> str:
+    from tasks.pomodoro import pausa
+    return await pausa()
+
+
+async def comando_parar_foco(cmd: str) -> str:
+    from tasks.pomodoro import parar_foco
+    return await parar_foco()
+
+
+async def comando_status_foco(cmd: str) -> str:
+    from tasks.pomodoro import status_foco
+    return status_foco()
+
+
+async def comando_noticias(cmd: str) -> str:
+    from tasks.news import noticias_para_fala
+    return await noticias_para_fala()
+
+
+async def comando_briefing(cmd: str) -> str:
+    from tasks.morning_brief import gerar_briefing
+    return await gerar_briefing()
+
+
+async def comando_email(cmd: str) -> str:
+    from tasks.email_checker import emails_para_fala
+    return await emails_para_fala()
+
+
+async def comando_eventos(cmd: str) -> str:
+    from tasks.calendar_integration import eventos_para_fala
+    return await eventos_para_fala()
+
+
+async def comando_adicionar_evento(cmd: str) -> str:
+    from tasks.calendar_integration import adicionar_evento
+    from datetime import date
+    import re
+    titulo = cmd.replace("adicionar evento", "").replace("criar evento", "").strip()
+    if not titulo:
+        return "Qual evento deseja adicionar?"
+    data = date.today().isoformat()
+    m = re.search(r"(\d{4})-(\d{2})-(\d{2})", cmd)
+    if m:
+        data = f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+        titulo = titulo.replace(m.group(0), "")
+    else:
+        m = re.search(r"(\d{2})[/-](\d{2})[/-](\d{4})", cmd)
+        if m:
+            data = f"{m.group(3)}-{m.group(2)}-{m.group(1)}"
+            titulo = titulo.replace(m.group(0), "")
+    mh = re.search(r"(\d{1,2})[:.](\d{2})", titulo)
+    hora = f"{int(mh.group(1)):02d}:{mh.group(2)}" if mh else ""
+    titulo = re.sub(r"\b(as|em|para)\b", "", titulo, flags=re.IGNORECASE).strip()
+    titulo = re.sub(r"\s+", " ", titulo).strip()
+    if not titulo:
+        titulo = "Evento"
+    return await adicionar_evento(titulo, data, hora)
+
+
+async def comando_custom_listar(cmd: str) -> str:
+    from tasks.custom_commands import listar_comandos
+    cmds = listar_comandos()
+    if not cmds:
+        return "Nenhum comando customizado."
+    return "Comandos: " + ", ".join(c["nome"] for c in cmds)
+
+
+async def comando_custom_adicionar(cmd: str) -> str:
+    from tasks.custom_commands import adicionar_comando
+    partes = cmd.replace("adicionar comando", "").strip().split(" como ", 1)
+    if len(partes) < 2:
+        return "Diga: adicionar comando [gatilho] como [tipo:valor]"
+    return adicionar_comando(partes[0].strip(), partes[1].strip())
+
+
+async def comando_custom_remover(cmd: str) -> str:
+    from tasks.custom_commands import remover_comando
+    gatilho = cmd.replace("remover comando", "").strip()
+    if not gatilho:
+        return "Qual comando remover?"
+    return remover_comando(gatilho)
+
+
+async def comando_terminal(cmd: str) -> str:
+    texto = cmd.replace("terminal", "").strip()
+    if not texto:
+        return "O que devo executar no terminal?"
+    try:
+        import subprocess, shlex
+        r = subprocess.run(shlex.split(texto), capture_output=True, text=True, timeout=15)
+        saida = (r.stdout or "")[:500] + (r.stderr or "")[:200]
+        return f"Saída: {saida.strip()}" if saida.strip() else "Comando executado."
+    except subprocess.TimeoutExpired:
+        return "Comando excedeu o tempo limite."
+    except Exception as e:
+        return f"Erro: {e}"
+
+
 ROUTES.extend(
     [
         (("dormir",), modo_sono),
@@ -642,6 +753,28 @@ ROUTES.extend(
         (("status",), monitor_status),
         (("monitor",), monitor_status),
         (("diagnostico",), monitor_status),
+        (("foco",), comando_foco),
+        (("focar",), comando_foco),
+        (("pomodoro",), comando_foco),
+        (("pausa",), comando_pausa),
+        (("descanso",), comando_pausa),
+        (("parar", "foco"), comando_parar_foco),
+        (("parar", "pomodoro"), comando_parar_foco),
+        (("status", "foco"), comando_status_foco),
+        (("noticias",), comando_noticias),
+        (("briefing",), comando_briefing),
+        (("email",), comando_email),
+        (("eventos",), comando_eventos),
+        (("calendario",), comando_eventos),
+        (("agenda",), comando_eventos),
+        (("adicionar", "evento"), comando_adicionar_evento),
+        (("criar", "evento"), comando_adicionar_evento),
+        (("comando", "custom"), comando_custom_listar),
+        (("adicionar", "comando"), comando_custom_adicionar),
+        (("remover", "comando"), comando_custom_remover),
+        (("terminal",), comando_terminal),
+        (("explain",), pesquisar_web),
+        (("o", "que", "e"), pesquisar_web_explicacao),
     ]
 )
 
