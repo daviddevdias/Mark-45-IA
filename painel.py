@@ -330,7 +330,6 @@ class JarvisBridge(QObject):
                 "carregando": hw.get("carregando"),
                 "alertas": hw.get("alertas", {}),
                 "alertas_recentes": alertas_recentes(8),
-                "visao": status_monitor(),
                 "ia_status": router.status,
             }
             return json.dumps(dados, ensure_ascii=False)
@@ -347,9 +346,6 @@ class JarvisBridge(QObject):
             "lixeira": "limpar lixeira",
             "silencio": "silencio",
             "trabalho": "trabalho",
-            "monitorar": "monitorar tela",
-            "parar_monitor": "desligar monitor",
-            "status_monitor": "monitor status",
             "tv_on": "ligar tv",
             "tv_off": "desligar tv",
             "tv_youtube": "youtube tv",
