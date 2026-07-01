@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 import sys
 import asyncio
@@ -6,16 +7,18 @@ import threading
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication
 
-# Configurações
+# ===== CONFIGURAÇÕES AMBIENTE =====
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--no-sandbox --log-level=3"
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 os.environ["QT_LOGGING_RULES"] = "qt.qpa.window=false"
 
-# Setup de logs
+# ===== SETUP LOGS =====
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("jarvis")
+for mod in ["httpx", "httpcore", "telegram", "urllib3"]:
+    logging.getLogger(mod).setLevel(logging.WARNING)
 
-# Importações do projeto
+# ===== IMPORTAÇÕES DO PROJETO =====
 import config
 from painel import PainelCore, set_loop
 from audio.voz import ouvir_comando, falar
@@ -23,17 +26,18 @@ from engine.core import processar_comando, inicializar_ia
 from engine.controller import get_shutdown_event
 from tasks.monitor import iniciar_sentinela, registrar_loop_monitor_voz
 from tasks.alarm import gerenciador_alarmes
+from tasks.wake import processar_wake, resposta_ativacao_aleatoria
 from app_ul.interface import JarvisUI
-from storage.wake import processar_wake, resposta_ativacao_aleatoria
+from integrations.telegram_bridge_auth_patch import iniciar_telegram
 
-# Criar aplicação Qt
+# ===== APLICAÇÃO QT =====
 QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
 app = QApplication(sys.argv)
 app.setQuitOnLastWindowClosed(False)
 
 
-async def processar_comando_voz(cmd: str):
-    """Processa um comando de voz"""
+async def executar(cmd: str):
+    """Executa um comando de voz"""
     try:
         await processar_comando(cmd)
     except Exception as e:
@@ -41,12 +45,19 @@ async def processar_comando_voz(cmd: str):
 
 
 async def loop_principal(ui: PainelCore):
-    """Loop principal do Jarvis - ouve e processa comandos"""
-    
-    # Inicializa tudo
+    """
+    Loop principal do Jarvis.
+    - Ouve áudio
+    - Detecta ativação
+    - Processa comandos
+    """
+    # Inicializa componentes
     await inicializar_ia()
     iniciar_sentinela()
     registrar_loop_monitor_voz(asyncio.get_running_loop())
+    
+    # Inicia telegram em thread separada
+    threading.Thread(target=iniciar_telegram, daemon=True, name="telegram").start()
     
     # Aguarda sinal de encerramento
     shutdown = get_shutdown_event()
@@ -54,27 +65,27 @@ async def loop_principal(ui: PainelCore):
     # Loop infinito
     while not shutdown.is_set():
         try:
-            # Recarrega config
+            # Recarrega configuração
             config.recarregar_identidade_painel()
             
-            # Ouve áudio
+            # Ouve áudio do usuário
             audio = await ouvir_comando()
             if not audio or not isinstance(audio, str):
                 await asyncio.sleep(0.1)
                 continue
             
-            # Verifica se foi ativado
+            # Verifica se foi ativado (wake word + comando)
             ativo, cmd = processar_wake(audio)
             if not ativo:
                 continue
             
-            # Se ativou mas sem comando, fala resposta
+            # Se ativou sem comando, responde aleatoriamente
             if not cmd:
                 await falar(resposta_ativacao_aleatoria())
                 continue
             
             # Processa o comando
-            await processar_comando_voz(cmd.strip())
+            await executar(cmd.strip())
             
         except Exception as e:
             log.exception("Erro no loop principal")
@@ -82,7 +93,10 @@ async def loop_principal(ui: PainelCore):
 
 
 def rodar_engine(ui: PainelCore):
-    """Roda o engine em uma thread separada"""
+    """
+    Roda o engine em uma thread separada.
+    Cria um novo event loop assíncrono.
+    """
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     set_loop(loop)
@@ -102,8 +116,8 @@ def rodar_engine(ui: PainelCore):
 def main():
     """Função principal - inicia tudo"""
     
-    # Cria a interface
-    ui = PainelCore()
+    # Cria a interface gráfica
+    ui = JarvisUI()
     ui.show()
     
     # Inicia o engine em uma thread separada
