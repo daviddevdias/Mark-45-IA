@@ -17,6 +17,7 @@ from engine.controller import (
     get_shutdown_event,
 )
 
+
 __all__ = [
     "IARRouter",
     "Historico",
