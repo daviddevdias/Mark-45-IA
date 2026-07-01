@@ -161,6 +161,41 @@ def check_audio() -> bool:
         return False
 
 
+def check_lmstudio() -> bool:
+    try:
+        import aiohttp
+        import asyncio
+
+        loop = asyncio.new_event_loop()
+
+        async def _check():
+            try:
+                async with aiohttp.ClientSession() as s:
+                    async with s.get("http://127.0.0.1:1234/v1/models", timeout=2) as r:
+                        return r.status == 200
+            except:
+                return False
+
+        result = loop.run_until_complete(_check())
+        loop.close()
+        return result
+    except:
+        return False
+
+
+def check_sentinela() -> bool:
+    try:
+        import threading
+
+        return any(
+            t.name == "Sentinela" and t.is_alive() for t in threading.enumerate()
+        )
+    except:
+        return False
+
+
 def registrar_modulos_padrao():
     watchdog.registrar("ia", check_ia, reset_ia)
     watchdog.registrar("audio", check_audio)
+    watchdog.registrar("lmstudio", check_lmstudio)
+    watchdog.registrar("sentinela", check_sentinela)

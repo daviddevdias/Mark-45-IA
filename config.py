@@ -85,6 +85,14 @@ def notificar_voz_painel(on: bool, vol: float = 1.0):
             voz_ui_cb(bool(on), float(vol))
         except:
             pass
+    try:
+        from app_ul.interface import falar_on, falar_off
+        if on:
+            falar_on(float(vol))
+        else:
+            falar_off()
+    except:
+        pass
 
 
 def recarregar_identidade_painel():

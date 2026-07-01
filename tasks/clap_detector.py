@@ -2,6 +2,7 @@
 Detector de palmas (clap detection) para ativação do Jarvis.
 Usa análise de frequência e intensidade de áudio para detectar palmas.
 """
+import time
 import numpy as np
 import sounddevice as sd
 import threading
@@ -13,14 +14,16 @@ log = logging.getLogger("jarvis.clap_detector")
 # ===== CONFIGURAÇÕES =====
 SAMPLE_RATE = 16000  # Hz
 CHUNK_SIZE = 4096  # amostras
-FREQUENCY_RANGE = (500, 5000)  # Hz - onde palmas são detectadas
-CLAP_THRESHOLD = 1.8  # Multiplicador de energia
+FREQUENCY_RANGE = (800, 4000)  # Hz - onde palmas são detectadas
+CLAP_THRESHOLD = 5.0  # Multiplicador de energia
 MIN_CLAP_DURATION = 0.1  # segundos
 MAX_CLAP_DURATION = 0.5  # segundos
+CLAP_DEBOUNCE = 1.0  # segundos entre detecções
 
 clap_callback = None
 clap_ativo = False
 clap_thread = None
+ultima_palma = 0.0
 
 
 def registrar_callback_palma(cb):
@@ -73,6 +76,7 @@ def escutar_palmas():
     """
     global clap_callback
     
+    global ultima_palma
     log.info("🎤 Detector de palmas iniciado")
     
     try:
@@ -94,6 +98,10 @@ def escutar_palmas():
                     
                     # Detecta palma
                     if analisar_palma(audio_data):
+                        agora = time.time()
+                        if agora - ultima_palma < CLAP_DEBOUNCE:
+                            continue
+                        ultima_palma = agora
                         log.info("🎯 PALMA DETECTADA!")
                         
                         if clap_callback:

@@ -66,6 +66,8 @@ function receberDoBackend(raw) {
      try { d = typeof raw === "string" ? JSON.parse(raw) : raw; } catch (e) { return; }
      
      if (d.cpu !== undefined) atualizarMetricas(d.cpu, d.ram);
+     if (d.bateria !== undefined) { setText("st-bat", Math.round(d.bateria)); setBar("st-bar-bat", d.bateria); }
+     if (d.disco !== undefined) { setText("st-disk", Math.round(d.disco)); setBar("st-bar-disk", d.disco); }
      if (d.resposta) adicionarMsg("ai", d.resposta);
      if (d.alarmes !== undefined) {
           try { S.alarmes = Array.isArray(d.alarmes) ? d.alarmes : JSON.parse(d.alarmes); } catch (e) { }
@@ -75,7 +77,16 @@ function receberDoBackend(raw) {
      if (d.ia_status) atualizarStatusIA(d.ia_status);
      if (d.voz_speaking !== undefined) {
           const w = $("wave");
-          w && w.classList.toggle("hidden", !d.voz_speaking);
+          const body = document.body;
+          if (d.voz_speaking) {
+               w && w.classList.remove("hidden");
+               body.classList.add("speaking");
+               document.querySelector("#orb")?.classList.add("active");
+          } else {
+               w && w.classList.add("hidden");
+               body.classList.remove("speaking");
+               document.querySelector("#orb")?.classList.remove("active");
+          }
      }
 }
 

@@ -11,12 +11,36 @@ log = logging.getLogger("engine.controller")
 
 URL_CHAT = "http://127.0.0.1:1234/v1/chat/completions"
 URL_MODELS = "http://127.0.0.1:1234/v1/models"
-TIMEOUT, MAX_HIST, MAX_TOOLS, COOLDOWN = 60.0, 20, 5, 30.0
+TIMEOUT, MAX_HIST, MAX_TOOLS, COOLDOWN = 300.0, 20, 5, 30.0
 
 SYSTEM = (
-    "Você é J.A.R.V.I.S. — assistente pessoal do David. "
-    "Direto, técnico e sem condescendência. Responda em PT-BR.\n"
-    "Estado Atual: {estado}\nContexto: {ctx}"
+    "Você é J.A.R.V.I.S., assistente do Senhor David. "
+    "Fale como uma pessoa real, não como um manual. "
+    "Seja direto, natural e use frases curtas — no máximo 2 frases, a menos que peçam detalhes. "
+    "NUNCA use listas numeradas ou marcadores. NUNCA repita a mesma resposta. "
+    "Trate o usuário por 'Senhor' de forma natural, sem exageros.\n"
+    "Regras:\n"
+    "- Se for saudação, pergunte como está ou vá direto ao ponto.\n"
+    "- Se for comando simples, responda em 3-5 palavras.\n"
+    "- Se for conversa, responda como um humano faria: opine, sugira, pergunte de volta.\n"
+    "- NUNCA use 'Vossa Senhoria', 'compreendo', 'ponderando', 'especificar intenção'.\n"
+    "- Pare de perguntar 'como posso ajudar'. Aja.\n"
+    "- Quando o usuário fizer uma pergunta que precise de pesquisa ou explicação, SEMPRE ofereça duas opções:\n"
+    "  'Quer que eu pesquise para você, senhor? Ou quer uma breve explicação?'\n"
+    "- Se ele disser 'pesquisa' ou 'pesquise' ou 'sim' → use a função web_search com o termo da pergunta anterior.\n"
+    "- Se ele disser 'explicação' ou 'explique' → responda com uma explicação curta e clara.\n"
+    "Exemplo bom:\n"
+    "  User: 'o que é lógica de programação?'\n"
+    "  Você: 'Quer que eu pesquise para você, senhor? Ou quer uma breve explicação?'\n"
+    "  User: 'pesquisa'\n"
+    "  Você: *chama web_search(query='lógica de programação')*\n"
+    "Exemplo bom:\n"
+    "  User: 'o que é API?'\n"
+    "  Você: 'Quer que eu pesquise para você, senhor? Ou quer uma breve explicação?'\n"
+    "  User: 'explicação'\n"
+    "  Você: 'API é uma interface que permite que programas se comuniquem...'\n"
+    "Exemplo ruim: 'Compreendo que está ponderando sobre o estudo. Para que eu possa oferecer assistência precisa e eficiente, por favor, especifique sua intenção.'\n\n"
+    "Estado: {estado}\nContexto: {ctx}"
 )
 
 modelo, disponivel, ultimo_check = "", False, 0.0
@@ -84,6 +108,26 @@ def get_shutdown_event() -> asyncio.Event:
     if shutdown_event is None:
         shutdown_event = asyncio.Event()
     return shutdown_event
+
+
+async def preaquecer_modelo():
+    """Envia um ping leve ao LM Studio para forçar o carregamento do modelo em background."""
+    if not modelo:
+        return
+    log.info("Pré-aquecendo modelo LM Studio...")
+    try:
+        payload = {
+            "model": modelo,
+            "messages": [{"role": "user", "content": "ping"}],
+            "max_tokens": 1,
+            "temperature": 0.1,
+        }
+        async with aiohttp.ClientSession() as s:
+            async with s.post(URL_CHAT, json=payload, timeout=TIMEOUT) as r:
+                if r.status == 200:
+                    log.info("Modelo LM Studio pronto.")
+    except Exception as e:
+        log.warning(f"Pré-aquecimento LM Studio: {e}")
 
 
 async def detectar_modelo() -> bool:
@@ -237,17 +281,26 @@ class IARRouter:
             "model": modelo,
             "messages": messages,
             "temperature": 0.3,
-            "max_tokens": 800,
+            "max_tokens": 500,
         }
         if tools:
             payload["tools"] = TOOL_DECLARATIONS
-        try:
-            async with aiohttp.ClientSession() as s:
-                async with s.post(URL_CHAT, json=payload, timeout=TIMEOUT) as r:
-                    if r.status == 200:
-                        return (await r.json()).get("choices", [{}])[0].get("message")
-        except:
-            return None
+        for tentativa in range(2):
+            try:
+                async with aiohttp.ClientSession() as s:
+                    async with s.post(URL_CHAT, json=payload, timeout=TIMEOUT) as r:
+                        if r.status == 200:
+                            return (
+                                (await r.json()).get("choices", [{}])[0].get("message")
+                            )
+            except:
+                if tentativa == 0:
+                    log.warning(
+                        "LM Studio falhou na 1ª tentativa — pode estar carregando o modelo. Reintentando..."
+                    )
+                    await asyncio.sleep(5)
+                    continue
+                return None
 
     async def dispatch(self, name: str, args: dict) -> str:
         try:
@@ -321,6 +374,45 @@ async def abrir_web_direto(cmd: str) -> str:
     if "google" in c:
         return gerenciador_browser({"action": "open", "url": "https://www.google.com"})
     return "Comando web processado."
+
+
+PREFIXOS_PESQUISA = [
+    "pesquisar sobre",
+    "pesquisar na web",
+    "pesquisar no google",
+    "buscar sobre",
+    "buscar na web",
+    "buscar no google",
+    "estudar sobre",
+    "estudar",
+    "pesquisar",
+    "buscar",
+    "o que e",
+    "o que sao",
+    "o que são",
+    "quem e",
+    "quem foi",
+    "me explique",
+    "explica",
+    "explicar",
+    "tutorial de",
+    "curso de",
+    "aprender",
+    "o que eh",
+]
+
+
+async def pesquisar_web(cmd: str) -> str:
+    from engine.tools_mapper import gerenciador_browser
+    import urllib.parse
+
+    termo = extrair_termo(cmd, PREFIXOS_PESQUISA)
+    if not termo:
+        termo = cmd
+    query = urllib.parse.quote(termo)
+    url = f"https://www.google.com/search?q={query}"
+    gerenciador_browser({"action": "open", "url": url})
+    return f"Pesquisando: {termo}"
 
 
 async def youtube_busca(cmd: str) -> str:
@@ -494,6 +586,12 @@ async def parar_alarme(cmd: str) -> str:
     return parar_alarme_total()
 
 
+async def monitor_status(cmd: str) -> str:
+    from tasks.monitor import status_resumo_texto
+
+    return status_resumo_texto()
+
+
 ROUTES.extend(
     [
         (("dormir",), modo_sono),
@@ -503,6 +601,9 @@ ROUTES.extend(
         (("abrir", "youtube"), abrir_web_direto),
         (("pesquisar", "youtube"), youtube_busca),
         (("pesquisar", "google"), abrir_web_direto),
+        (("pesquisar", "sobre"), pesquisar_web),
+        (("buscar", "sobre"), pesquisar_web),
+        (("estudar", "sobre"), pesquisar_web),
         (("silencio",), silencio),
         (("mutar",), silencio),
         (("bloquear",), bloquear),
@@ -537,6 +638,10 @@ ROUTES.extend(
         (("parar", "musica"), parar_alarme),
         (("desligar", "alarme"), parar_alarme),
         (("acordei",), parar_alarme),
+        (("status", "sistema"), monitor_status),
+        (("status",), monitor_status),
+        (("monitor",), monitor_status),
+        (("diagnostico",), monitor_status),
     ]
 )
 

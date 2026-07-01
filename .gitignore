@@ -1,75 +1,12 @@
-
-
-api/**
-
-!api/config_core_exemplo.json
-!api/api_keys_exemplo.json
-
-.spotify_cache
-**/.spotify_cache/
-
-# Outras chaves e segredos gerais
-.env
-.env.*
-*.key
-*.pem
-secrets/
-config/secrets.json
-config/config_private.json
-
-
-# 2. VIRTUAL ENV E CACHE DO PYTHON
-
 venv/
-.venv/
-env/
-__pycache__/
-.cache/
-.cache-*/
-.cache*/
-*.pyc
-*.pyo
-*.pyd
-
-
-# 3. MODELOS DE IA PESADOS
-
-*.gguf
-*.bin
-*.pt
-*.safetensors
-*.onnx
-
-
-# 4. ÁUDIO / VOZ / MÍDIA / LOGS
-
-*.mp3
-*.wav
-*.flac
-*.ogg
-*.log
-logs/
-debug.log
-
-
-# 5. SISTEMA OPERACIONAL E IDEs
-
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-
-
-# 6. NODE / FRONT / PLAYWRIGHT (Futuro)
-
 node_modules/
-dist/
-build/
-playwright/.cache/
-
-
-# 7. BACKUPS E TEMPORÁRIOS
-
-*.bak
-*.tmp
-temp/
+__pycache__/
+*.pyc
+.DS_Store
+api/config_core.json
+api/config_smart.json
+api/api_keys.json
+api/alarme.json
+api/.spotify_cache
+engine/logs/
+tasks/logs/

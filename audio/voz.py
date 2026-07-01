@@ -1,4 +1,4 @@
-import asyncio, os, queue, threading, time, re, io
+import asyncio, os, queue, threading, time, re, io, tempfile
 import edge_tts, pygame, speech_recognition as sr
 import sounddevice as sd
 import scipy.io.wavfile as wav
@@ -10,9 +10,10 @@ mic_cmd: queue.Queue = queue.Queue()
 mic_rpy: queue.Queue = queue.Queue()
 falando = False
 interrompido = False
-barge_stop_event = threading.Event()
 barge_thread: threading.Thread | None = None
 mic_thread: threading.Thread | None = None
+barge_cmd: queue.Queue = queue.Queue()
+
 
 def criar_reconhecedor() -> sr.Recognizer:
     r = sr.Recognizer()
@@ -21,97 +22,172 @@ def criar_reconhecedor() -> sr.Recognizer:
     r.dynamic_energy_threshold = True
     return r
 
+
 reconhecedor = criar_reconhecedor()
 
+
 def limpar_texto(t: str) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"[^\w\s]", " ", (t or "").lower().strip())).strip()
+    return re.sub(
+        r"\s+", " ", re.sub(r"[^\w\s]", " ", (t or "").lower().strip())
+    ).strip()
+
 
 def reproduzir_sync(arquivo: str):
     global falando, interrompido
     with audio_io_lock:
         if not pygame.mixer.get_init():
-            pygame.mixer.init()
+            pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=4096)
         pygame.mixer.music.load(arquivo)
+        time.sleep(0.05)
         pygame.mixer.music.play()
         falando, interrompido = True, False
-        iniciar_barge_in()
+        try:
+            config.notificar_voz_painel(True, 1.0)
+        except:
+            pass
         while pygame.mixer.music.get_busy():
             if interrompido:
                 break
             time.sleep(0.05)
         pygame.mixer.music.stop()
         pygame.mixer.music.unload()
-    parar_barge_in()
     falando = False
     try:
         config.notificar_voz_painel(False, 1.0)
     except:
         pass
 
+
 async def falar(texto: str):
     if not texto.strip():
         return
-    arquivo = os.path.join(config.ASSETS_DIR, "output.mp3")
     try:
-        if os.path.exists(arquivo):
-            try:
-                os.remove(arquivo)
-            except:
-                pass
+        tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+        arquivo = tmp.name
+        tmp.close()
         await edge_tts.Communicate(texto, config.voz_atual).save(arquivo)
         print(f"[Jarvis]: {texto}")
         await asyncio.get_running_loop().run_in_executor(None, reproduzir_sync, arquivo)
     except Exception as e:
         print(f"Erro fala: {e}")
+    finally:
+        try:
+            if os.path.exists(arquivo):
+                os.unlink(arquivo)
+        except:
+            pass
+
+
+import numpy as np
+
+
+def rms_audio(audio: np.ndarray) -> float:
+    return float(np.sqrt(np.mean(audio.astype(np.float64) ** 2)))
+
 
 def capturar_audio() -> str:
     fs = 16000
+    chunk_len = int(0.3 * fs)
+    max_chunks = 15
+    silencio_max = 8
+    silencio_atual = 0
+    buf = []
     print("[Status]: Escutando...")
     try:
-        audio = sd.rec(int(6 * fs), samplerate=fs, channels=1, dtype="int16")
-        sd.wait()
+        for _ in range(max_chunks):
+            audio = sd.rec(chunk_len, samplerate=fs, channels=1, dtype="int16")
+            sd.wait()
+            rms = rms_audio(audio.flatten())
+            if rms > 120:
+                buf.append(audio.copy())
+                silencio_atual = 0
+            elif buf:
+                silencio_atual += 1
+                if silencio_atual >= silencio_max:
+                    break
+            if interrompido:
+                break
+        if not buf:
+            return ""
+        all_audio = np.concatenate(buf)
         wav_io = io.BytesIO()
-        wav.write(wav_io, fs, audio)
+        wav.write(wav_io, fs, all_audio)
         wav_io.seek(0)
         with sr.AudioFile(wav_io) as source:
             audio_data = reconhecedor.record(source)
             t = reconhecedor.recognize_google(audio_data, language="pt-BR")
             res = limpar_texto(t)
-            print(f"[Você]: {res}")
-            return res
+            if res:
+                print(f"[Você]: {res}")
+                return res
+            return ""
+    except sr.UnknownValueError:
+        return ""
+    except sr.RequestError as e:
+        print(f"STT off-line: {e}")
+        return ""
     except Exception:
-        print("Sem captura...")
         return ""
 
-def barge_loop():
-    while not barge_stop_event.is_set():
-        if not falando or interrompido:
-            break
+
+def wake_listener():
+    fs = 16000
+    chunk = int(0.3 * fs)
+    buf = []
+    ultima_stt = 0
+    while True:
         try:
-            audio = sd.rec(int(1 * 16000), samplerate=16000, channels=1, dtype="int16")
+            audio = sd.rec(chunk, samplerate=fs, channels=1, dtype="int16")
             sd.wait()
-            wav_io = io.BytesIO()
-            wav.write(wav_io, 16000, audio)
-            wav_io.seek(0)
-            with sr.AudioFile(wav_io) as source:
-                txt = limpar_texto(
-                    reconhecedor.recognize_google(reconhecedor.record(source), language="pt-BR")
-                )
-            if txt:
-                interromper_voz()
-                break
+            audio_flat = audio.flatten()
+            rms = rms_audio(audio_flat)
+
+            if rms < 80:
+                buf = []
+                continue
+
+            buf.append(audio_flat.copy())
+
+            agora = time.time()
+            tempo_buf = len(buf) * 0.3
+
+            # Único checkpoint a cada ~2.0s: detecta wake word E faz barge-in se falando
+            if tempo_buf >= 2.0 and (agora - ultima_stt) >= 1.5:
+                all_audio = np.concatenate(buf)
+                wav_io = io.BytesIO()
+                wav.write(wav_io, fs, all_audio)
+                wav_io.seek(0)
+                with sr.AudioFile(wav_io) as source:
+                    txt = limpar_texto(
+                        reconhecedor.recognize_google(
+                            reconhecedor.record(source), language="pt-BR"
+                        )
+                    )
+                ultima_stt = agora
+                buf = []
+                if txt:
+                    from tasks.wake import processar_wake
+
+                    ativo, _ = processar_wake(txt)
+                    if ativo:
+                        if falando:
+                            interromper_voz()
+                        barge_cmd.put(txt)
         except:
-            continue
+            time.sleep(0.05)
 
-def iniciar_barge_in():
-    global barge_thread
-    barge_stop_event.clear()
-    if not barge_thread or not barge_thread.is_alive():
-        barge_thread = threading.Thread(target=barge_loop, daemon=True)
-        barge_thread.start()
 
-def parar_barge_in():
-    barge_stop_event.set()
+_wake_thread_started = False
+
+
+def iniciar_wake_listener():
+    global _wake_thread_started, barge_thread
+    if _wake_thread_started:
+        return
+    _wake_thread_started = True
+    barge_thread = threading.Thread(target=wake_listener, daemon=True)
+    barge_thread.start()
+
 
 def run_mic_loop():
     while True:
@@ -121,16 +197,25 @@ def run_mic_loop():
         except:
             time.sleep(0.5)
 
+
 def ensure_mic_thread():
     global mic_thread
     if not mic_thread or not mic_thread.is_alive():
         mic_thread = threading.Thread(target=run_mic_loop, daemon=True)
         mic_thread.start()
 
+
 async def ouvir_comando() -> str:
+    try:
+        return barge_cmd.get_nowait()
+    except queue.Empty:
+        pass
     ensure_mic_thread()
     mic_cmd.put(True)
-    return await asyncio.get_running_loop().run_in_executor(None, mic_rpy.get)
+    loop = asyncio.get_running_loop()
+    res = await loop.run_in_executor(None, mic_rpy.get)
+    return res
+
 
 def interromper_voz():
     global interrompido
