@@ -1,42 +1,4 @@
-/****************************************************************************
-**
-** Copyright (C) 2016 The Qt Company Ltd.
-** Copyright (C) 2016 Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author Milian Wolff <milian.wolff@kdab.com>
-** Contact: https://www.qt.io/licensing/
-**
-** This file is part of the QtWebChannel module of the Qt Toolkit.
-**
-** $QT_BEGIN_LICENSE:LGPL$
-** Commercial License Usage
-** Licensees holding valid commercial Qt licenses may use this file in
-** accordance with the commercial license agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and The Qt Company. For licensing terms
-** and conditions see https://www.qt.io/terms-conditions. For further
-** information use the contact form at https://www.qt.io/contact-us.
-**
-** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 3 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPL3 included in the
-** packaging of this file. Please review the following information to
-** ensure the GNU Lesser General Public License version 3 requirements
-** will be met: https://www.gnu.org/licenses/lgpl-3.0.html.
-**
-** GNU General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 2.0 or (at your option) the GNU General
-** Public license version 3 or any later version approved by the KDE Free
-** Qt Foundation. The licenses are as published by the Free Software
-** Foundation and appearing in the file LICENSE.GPL2 and LICENSE.GPL3
-** included in the packaging of this file. Please review the following
-** information to ensure the GNU General Public License requirements will
-** be met: https://www.gnu.org/licenses/gpl-2.0.html and
-** https://www.gnu.org/licenses/gpl-3.0.html.
-**
-** $QT_END_LICENSE$
-**
-****************************************************************************/
+
 
 "use strict";
 
@@ -99,12 +61,12 @@ var QWebChannel = function(transport, initCallback)
     this.exec = function(data, callback)
     {
         if (!callback) {
-            // if no callback is given, send directly
+            
             channel.send(data);
             return;
         }
         if (channel.execId === Number.MAX_VALUE) {
-            // wrap
+            
             channel.execId = Number.MIN_VALUE;
         }
         if (data.hasOwnProperty("id")) {
@@ -161,7 +123,7 @@ var QWebChannel = function(transport, initCallback)
             new QObject(objectName, data[objectName], channel);
         }
 
-        // now unwrap properties, which might reference other registered objects
+        
         for (const objectName of Object.keys(channel.objects)) {
             channel.objects[objectName].unwrapProperties();
         }
@@ -178,10 +140,10 @@ function QObject(name, data, webChannel)
     this.__id__ = name;
     webChannel.objects[name] = this;
 
-    // List of callbacks that get invoked upon signal emission
+    
     this.__objectSignals__ = {};
 
-    // Cache of all properties, updated when a notify signal is emitted
+    
     this.__propertyCache__ = {};
 
     var object = this;
@@ -191,7 +153,7 @@ function QObject(name, data, webChannel)
     this.unwrapQObject = function(response)
     {
         if (response instanceof Array) {
-            // support list of objects
+            
             return response.map(qobj => object.unwrapQObject(qobj))
         }
         if (!(response instanceof Object))
@@ -218,14 +180,14 @@ function QObject(name, data, webChannel)
         qObject.destroyed.connect(function() {
             if (webChannel.objects[objectId] === qObject) {
                 delete webChannel.objects[objectId];
-                // reset the now deleted QObject to an empty {} object
-                // just assigning {} though would not have the desired effect, but the
-                // below also ensures all external references will see the empty map
-                // NOTE: this detour is necessary to workaround QTBUG-40021
+                
+                
+                
+                
                 Object.keys(qObject).forEach(name => delete qObject[name]);
             }
         });
-        // here we are already initialized, and thus must directly unwrap the properties
+        
         qObject.unwrapProperties();
         return qObject;
     }
@@ -251,15 +213,15 @@ function QObject(name, data, webChannel)
                 object.__objectSignals__[signalIndex] = object.__objectSignals__[signalIndex] || [];
                 object.__objectSignals__[signalIndex].push(callback);
 
-                // only required for "pure" signals, handled separately for properties in propertyUpdate
+                
                 if (isPropertyNotifySignal)
                     return;
 
-                // also note that we always get notified about the destroyed signal
+                
                 if (signalName === "destroyed" || signalName === "destroyed()" || signalName === "destroyed(QObject*)")
                     return;
 
-                // and otherwise we only need to be connected only once
+                
                 if (object.__objectSignals__[signalIndex].length == 1) {
                     webChannel.exec({
                         type: QWebChannelMessageTypes.connectToSignal,
@@ -273,13 +235,13 @@ function QObject(name, data, webChannel)
                     console.error("Bad callback given to disconnect from signal " + signalName);
                     return;
                 }
-                // This makes a new list. This is important because it won't interfere with
-                // signal processing if a disconnection happens while emittig a signal
+                
+                
                 object.__objectSignals__[signalIndex] = (object.__objectSignals__[signalIndex] || []).filter(function(c) {
                   return c != callback;
                 });
                 if (!isPropertyNotifySignal && object.__objectSignals__[signalIndex].length === 0) {
-                    // only required for "pure" signals, handled separately for properties in propertyUpdate
+                    
                     webChannel.exec({
                         type: QWebChannelMessageTypes.disconnectFromSignal,
                         object: object.__id__,
@@ -290,9 +252,7 @@ function QObject(name, data, webChannel)
         };
     }
 
-    /**
-     * Invokes all callbacks for the given signalname. Also works for property notify callbacks.
-     */
+    
     function invokeSignalCallbacks(signalName, signalArgs)
     {
         var connections = object.__objectSignals__[signalName];
@@ -305,15 +265,15 @@ function QObject(name, data, webChannel)
 
     this.propertyUpdate = function(signals, propertyMap)
     {
-        // update property cache
+        
         for (const propertyIndex of Object.keys(propertyMap)) {
             var propertyValue = propertyMap[propertyIndex];
             object.__propertyCache__[propertyIndex] = this.unwrapQObject(propertyValue);
         }
 
         for (const signalName of Object.keys(signals)) {
-            // Invoke all callbacks, as signalEmitted() does not. This ensures the
-            // property cache is updated before the callbacks are invoked.
+            
+            
             invokeSignalCallbacks(signalName, signals[signalName]);
         }
     }
@@ -433,7 +393,7 @@ QObject.prototype.toJSON = function() {
     };
 };
 
-//required for use with nodejs
+
 if (typeof module === 'object') {
     module.exports = {
         QWebChannel: QWebChannel

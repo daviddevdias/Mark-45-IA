@@ -122,7 +122,6 @@ def obter_temperatura_cpu() -> float | None:
 
 def obter_gpu() -> dict:
     info = {"gpu_percent": 0, "gpu_temp": 0, "gpu_mem": 0, "gpu_nome": ""}
-    # Tenta NVIDIA via GPUtil primeiro
     try:
         import GPUtil
         gpus = GPUtil.getGPUs()
@@ -135,7 +134,6 @@ def obter_gpu() -> dict:
             return info
     except:
         pass
-    # Fallback WMI para AMD/Intel no Windows
     try:
         import wmi
         c = wmi.WMI()
@@ -143,7 +141,6 @@ def obter_gpu() -> dict:
             nome = (gpu.Name or "").strip()
             if nome:
                 info["gpu_nome"] = nome
-            # Tenta uso via contador de performance (Win10/11)
             try:
                 perf = wmi.WMI(namespace="root\\cimv2")
                 engines = perf.Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine()
@@ -157,7 +154,6 @@ def obter_gpu() -> dict:
                     info["gpu_percent"] = round(total / count, 1)
             except:
                 pass
-            # Só pega o primeiro adaptador
             break
     except:
         pass

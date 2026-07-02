@@ -113,7 +113,7 @@ def get_shutdown_event() -> asyncio.Event:
 
 
 async def preaquecer_modelo():
-    """Envia um ping leve ao LM Studio para forçar o carregamento do modelo em background."""
+    
     if not modelo:
         return
     log.info("Pré-aquecendo modelo LM Studio...")

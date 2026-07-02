@@ -30,12 +30,17 @@ class LMManager:
             return False
 
     async def monitor_loop(self, interval: float = 30.0):
+        estado_anterior = None
         while True:
             await self.check_connection()
-            if self.is_online:
-                log.info(
-                    f"LM Studio online — modelos: {', '.join(self.modelos_disponiveis[:3])}"
-                )
+            if self.is_online != estado_anterior:
+                if self.is_online:
+                    log.info(
+                        f"LM Studio online — modelos: {', '.join(self.modelos_disponiveis[:3])}"
+                    )
+                else:
+                    log.warning("LM Studio offline.")
+                estado_anterior = self.is_online
             await asyncio.sleep(interval)
 
     def iniciar_monitoramento(self, loop: asyncio.AbstractEventLoop | None = None):

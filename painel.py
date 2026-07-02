@@ -162,10 +162,7 @@ from PyQt6.QtWebEngineCore import QWebEnginePage
 
 
 class DebugWebEnginePage(QWebEnginePage):
-    """Subclasse real necessária para capturar console.log/erro do JS.
-    Atribuir a função direto na instância (page.javaScriptConsoleMessage = fn)
-    NÃO funciona no PyQt — métodos virtuais do Qt só são interceptados
-    via subclasse de verdade."""
+    
 
     def javaScriptConsoleMessage(self, level, message, line, source):
         print(f"[JS console] {source}:{line} — {message}")
@@ -427,17 +424,14 @@ class PainelCore(QMainWindow):
         self.bridge.bind_window(self)
         self._sentinela_cache = {}
         self._sentinela_queue = queue.Queue(maxsize=1)
-        self._sentinela_ativado = False  # desligado por padrão
+        self._sentinela_ativado = False
 
         self.web = QWebEngineView()
         self.setCentralWidget(self.web)
 
-        # Página customizada: captura de fato os erros/logs de JS no terminal
         self._page = DebugWebEnginePage(self.web)
         self.web.setPage(self._page)
 
-        # Reforço: garante que a página file:// consiga carregar recursos locais
-        # IMPORTANTE: usar page.settings() em vez de web.settings() — NÃO propagam!
         from PyQt6.QtWebEngineCore import QWebEngineSettings
         settings = self.web.page().settings()
         settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True)
@@ -450,7 +444,6 @@ class PainelCore(QMainWindow):
         web_path = QUrl.fromLocalFile(str(config.BASE_DIR / "web" / "index.html"))
         self.web.setUrl(web_path)
 
-        # Teste: injeta JS após carregamento para confirmar que execução funciona
         QTimer.singleShot(1500, lambda: self.web.page().runJavaScript(
             "console.log('[PYTHON] Injeção direta OK'); adicionarLog('info', 'Backend→JS funcional.');"
             "receberDoBackend({temp:42,cpu:50,ram:50,bateria:80,disco:60,uptime:'TESTE',internet:true,lm_status:true});"
@@ -496,7 +489,6 @@ class PainelCore(QMainWindow):
 
     def atualizar_stats(self):
         dados = {"voz_speaking": self.voz_ativa}
-        # Detecta desktop (sem bateria) — verifica só uma vez
         if not hasattr(self, '_sem_bateria'):
             try:
                 bat = psutil.sensors_battery()

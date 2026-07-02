@@ -10,6 +10,9 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s: %(message)s"
 )
 
+for _nome_ruidoso in ("faster_whisper", "httpx", "huggingface_hub", "urllib3", "filelock"):
+    logging.getLogger(_nome_ruidoso).setLevel(logging.WARNING)
+
 RESPOSTAS_CURTAS = {
     "ok": "Ok.",
     "feito": "Feito.",

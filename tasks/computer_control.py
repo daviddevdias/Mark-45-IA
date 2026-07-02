@@ -89,7 +89,6 @@ def print_tela():
 
 
 def limpar_lixeira():
-    # SHEmptyRecycleBinW(flags=7): sem confirmação, sem progresso, sem som.
     try:
         ctypes.windll.shell32.SHEmptyRecycleBinW(None, None, 0x00000001 | 0x00000002 | 0x00000004)
     except Exception:

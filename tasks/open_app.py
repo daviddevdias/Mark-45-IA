@@ -154,7 +154,7 @@ def _abrir_url_ou_uri(comando: str) -> bool:
         webbrowser.open(comando)
         return True
     if ":" in comando and " " not in comando and not Path(comando).drive:
-        os.startfile(comando)  # type: ignore[attr-defined]
+        os.startfile(comando)  [attr-defined]
         return True
     return False
 
@@ -193,7 +193,7 @@ def disparar(app: str) -> bool:
             return True
 
     try:
-        os.startfile(comando)  # type: ignore[attr-defined]
+        os.startfile(comando)  [attr-defined]
         return True
     except OSError:
         return False

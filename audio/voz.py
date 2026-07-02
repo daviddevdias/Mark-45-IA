@@ -1,11 +1,12 @@
-import asyncio, os, queue, threading, time, re, io, tempfile
-import edge_tts, pygame, speech_recognition as sr
+import asyncio, os, queue, threading, time, re, tempfile
+from collections import deque
+import edge_tts, pygame
 import sounddevice as sd
-import scipy.io.wavfile as wav
+import numpy as np
 import config
 
 audio_io_lock = threading.RLock()
-mic_lock = threading.Lock()
+mic_lock = threading.RLock()
 mic_cmd: queue.Queue = queue.Queue()
 mic_rpy: queue.Queue = queue.Queue()
 falando = False
@@ -13,17 +14,29 @@ interrompido = False
 barge_thread: threading.Thread | None = None
 mic_thread: threading.Thread | None = None
 barge_cmd: queue.Queue = queue.Queue()
+ouvindo_comando = threading.Event()
+
+# ---------------- Whisper ----------------
+_whisper_model = None
+_whisper_lock = threading.Lock()
 
 
-def criar_reconhecedor() -> sr.Recognizer:
-    r = sr.Recognizer()
-    r.pause_threshold = 0.3
-    r.non_speaking_duration = 0.1
-    r.dynamic_energy_threshold = True
-    return r
+def obter_whisper():
+    global _whisper_model
+    if _whisper_model is None:
+        with _whisper_lock:
+            if _whisper_model is None:
+                from faster_whisper import WhisperModel
 
-
-reconhecedor = criar_reconhecedor()
+                print("[Whisper]: carregando modelo...")
+                _whisper_model = WhisperModel(
+                    getattr(config, "WHISPER_MODEL", "small"),
+                    device=getattr(config, "WHISPER_DEVICE", "cpu"),
+                    compute_type=getattr(config, "WHISPER_COMPUTE", "int8"),
+                    cpu_threads=os.cpu_count() or 4,
+                )
+                print("[Whisper]: pronto")
+    return _whisper_model
 
 
 def limpar_texto(t: str) -> str:
@@ -32,6 +45,44 @@ def limpar_texto(t: str) -> str:
     ).strip()
 
 
+def transcrever(audio: np.ndarray, fs: int = 16000, beam_size: int = 1) -> str:
+    try:
+        modelo = obter_whisper()
+        audio_f32 = audio.astype(np.float32) / 32768.0
+        segments, _ = modelo.transcribe(
+            audio_f32,
+            language="pt",
+            beam_size=beam_size,
+            vad_filter=True,
+            vad_parameters=dict(min_silence_duration_ms=250, speech_pad_ms=400),
+            condition_on_previous_text=False,
+            temperature=0.0,
+            initial_prompt="Jarvis. Comandos de voz em português: jarvis, abrir, tocar, pesquisar, parar.",
+        )
+        texto = " ".join(s.text.strip() for s in segments)
+        return limpar_texto(texto)
+    except Exception as e:
+        print(f"Erro Whisper: {e}")
+        return ""
+
+
+def rms_audio(audio: np.ndarray) -> float:
+    return float(np.sqrt(np.mean(audio.astype(np.float64) ** 2)))
+
+
+def gravar_chunk(fs: int, tamanho: int) -> np.ndarray:
+    with mic_lock:
+        audio = sd.rec(tamanho, samplerate=fs, channels=1, dtype="int16")
+        sd.wait()
+    return audio.copy()
+
+
+def calibrar_ruido(fs: int = 16000, dur: float = 0.4) -> float:
+    audio = gravar_chunk(fs, int(dur * fs))
+    return rms_audio(audio.flatten())
+
+
+# ---------------- TTS ----------------
 def reproduzir_sync(arquivo: str):
     global falando, interrompido
     with audio_io_lock:
@@ -78,71 +129,89 @@ async def falar(texto: str):
             pass
 
 
-import numpy as np
-
-
-def rms_audio(audio: np.ndarray) -> float:
-    return float(np.sqrt(np.mean(audio.astype(np.float64) ** 2)))
-
-
+# ---------------- Captura de comando ----------------
 def capturar_audio() -> str:
     fs = 16000
-    chunk_len = int(0.3 * fs)
-    max_chunks = 15
-    silencio_max = 8
-    silencio_atual = 0
-    buf = []
+    chunk_dur = 0.2
+    chunk_len = int(chunk_dur * fs)
+    max_chunks = int(12 / chunk_dur)  # até ~12s de fala
+    silencio_max = int(1.0 / chunk_dur)  # ~1s de silêncio encerra
+    pre_roll = int(0.4 / chunk_dur)  # guarda 0.4s antes do gatilho
+
     print("[Status]: Escutando...")
+    ouvindo_comando.set()
     try:
+        piso = calibrar_ruido(fs)
+        limiar = max(piso * 2.5, 150)
+
+        pre_buf = deque(maxlen=pre_roll)
+        buf = []
+        gravando = False
+        silencio_atual = 0
+
         for _ in range(max_chunks):
-            audio = sd.rec(chunk_len, samplerate=fs, channels=1, dtype="int16")
-            sd.wait()
-            rms = rms_audio(audio.flatten())
-            if rms > 120:
-                buf.append(audio.copy())
-                silencio_atual = 0
-            elif buf:
-                silencio_atual += 1
-                if silencio_atual >= silencio_max:
-                    break
+            frame = gravar_chunk(fs, chunk_len)
+            rms = rms_audio(frame.flatten())
+
+            if not gravando:
+                pre_buf.append(frame)
+                if rms > limiar:
+                    gravando = True
+                    buf.extend(pre_buf)
+                    pre_buf.clear()
+            else:
+                buf.append(frame)
+                if rms > limiar:
+                    silencio_atual = 0
+                else:
+                    silencio_atual += 1
+                    if silencio_atual >= silencio_max:
+                        break
+
             if interrompido:
                 break
+
         if not buf:
             return ""
-        all_audio = np.concatenate(buf)
-        wav_io = io.BytesIO()
-        wav.write(wav_io, fs, all_audio)
-        wav_io.seek(0)
-        with sr.AudioFile(wav_io) as source:
-            audio_data = reconhecedor.record(source)
-            t = reconhecedor.recognize_google(audio_data, language="pt-BR")
-            res = limpar_texto(t)
-            if res:
-                print(f"[Você]: {res}")
-                return res
-            return ""
-    except sr.UnknownValueError:
+
+        all_audio = np.concatenate(buf).flatten()
+        texto = transcrever(all_audio, fs)
+        if texto:
+            print(f"[Você]: {texto}")
+        return texto
+    except Exception as e:
+        print(f"Erro captura: {e}")
         return ""
-    except sr.RequestError as e:
-        print(f"STT off-line: {e}")
-        return ""
-    except Exception:
-        return ""
+    finally:
+        ouvindo_comando.clear()
 
 
+# ---------------- Wake word / barge-in ----------------
 def wake_listener():
     fs = 16000
     chunk = int(0.3 * fs)
     buf = []
     ultima_stt = 0
+
+    try:
+        while ouvindo_comando.is_set():
+            time.sleep(0.1)
+        piso = calibrar_ruido(fs)
+        limiar = max(piso * 2.0, 100)
+    except Exception:
+        limiar = 100
+
     while True:
         try:
-            audio = sd.rec(chunk, samplerate=fs, channels=1, dtype="int16")
-            sd.wait()
-            audio_flat = audio.flatten()
+            if ouvindo_comando.is_set():
+                buf = []
+                time.sleep(0.1)
+                continue
+
+            audio_flat = gravar_chunk(fs, chunk).flatten()
             rms = rms_audio(audio_flat)
 
-            if rms < 80:
+            if rms < limiar:
                 buf = []
                 continue
 
@@ -154,15 +223,7 @@ def wake_listener():
             # Único checkpoint a cada ~2.0s: detecta wake word E faz barge-in se falando
             if tempo_buf >= 2.0 and (agora - ultima_stt) >= 1.5:
                 all_audio = np.concatenate(buf)
-                wav_io = io.BytesIO()
-                wav.write(wav_io, fs, all_audio)
-                wav_io.seek(0)
-                with sr.AudioFile(wav_io) as source:
-                    txt = limpar_texto(
-                        reconhecedor.recognize_google(
-                            reconhecedor.record(source), language="pt-BR"
-                        )
-                    )
+                txt = transcrever(all_audio, fs, beam_size=2)
                 ultima_stt = agora
                 buf = []
                 if txt:

@@ -52,8 +52,7 @@ SLEEP_TIMEOUT = 30
 
 async def acao_palma():
     log.info("Ação de palma disparada!")
-    await falar("Olá senhor Davi, eu sou o jarvis estou pronto para instrução.")
-    await falar("Modo sentinela pronto!")
+    await falar("Bom dia senhor Davi, Estou operando a 100%")
 
 
 async def executar(cmd: str):
@@ -105,7 +104,6 @@ async def loop_principal(ui):
                     interromper_voz()
                     task_atual.cancel()
                     task_atual = None
-                # Usa o áudio do barge direto
             else:
                 audio = await ouvir_comando()
 
@@ -149,7 +147,7 @@ async def loop_principal(ui):
 
 
 async def aguardar_task_ou_barge(task: asyncio.Task | None):
-    """Se task está rodando, espera ela com polling curto. Se chegar barge, retorna o áudio."""
+    
     if task is None or task.done():
         return None, None
     while not task.done():

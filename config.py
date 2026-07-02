@@ -59,6 +59,8 @@ def definir_valor_ui(chave: str, valor: str):
         "telegram_auth_token": "TELEGRAM_AUTH_TOKEN",
         "deepgram_api_key": "DEEPGRAM_API_KEY",
         "whisper_model": "WHISPER_MODEL",
+        "whisper_device": "WHISPER_DEVICE",
+        "whisper_compute": "WHISPER_COMPUTE",
         "cidade_padrao": "cidade_padrao",
         "email_imap_host": "EMAIL_IMAP_HOST",
         "email_user": "EMAIL_USER",
@@ -130,6 +132,8 @@ TELEGRAM_AUTH_TOKEN = cfg.get("telegram_auth_token", "")
 TELEGRAM_ALLOWED_IDS = cfg.get("telegram_allowed_ids", [])
 OPENWEATHER_API_KEY = cfg.get("openweather_api_key", "")
 WHISPER_MODEL = cfg.get("whisper_model", "small")
+WHISPER_DEVICE = cfg.get("whisper_device", "cpu")
+WHISPER_COMPUTE = cfg.get("whisper_compute", "int8")
 NOME_MESTRE = cfg.get("nome_mestre", "Chefe")
 voz_atual = cfg.get("voz_atual", cfg.get("voz", "pt-BR-AntonioNeural"))
 

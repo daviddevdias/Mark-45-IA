@@ -44,24 +44,24 @@ from PyQt6.QtWidgets import (
 
 @dataclass
 class KitPintura:
-    """Paleta de QColor pré-calculada para um tema."""
+    
 
-    bg_tint: QColor  # halo de fundo
-    glow_hot: QColor  # brilho quente externo
-    glow_mid: QColor  # brilho médio externo
-    scan_line: QColor  # linhas de varredura radar
-    ring_outer: QColor  # anel externo tracejado
-    accent: QColor  # cor de destaque geral
-    core_white: QColor  # ponto branco central
-    core_mid: QColor  # gradiente médio do núcleo
-    core_outer: QColor  # borda do núcleo
-    core_hot: QColor  # cor quente do núcleo
-    tentacle: QColor  # tentáculos (base)
-    tentacle_hot: QColor  # tentáculos (quente / blend)
-    particle: QColor  # partículas orbitais
-    arc: QColor  # arco externo segmentado
-    title: QColor  # texto "J.A.R.V.I.S"
-    subtitle: QColor  # texto "A C T I V E"
+    bg_tint: QColor
+    glow_hot: QColor
+    glow_mid: QColor
+    scan_line: QColor
+    ring_outer: QColor
+    accent: QColor
+    core_white: QColor
+    core_mid: QColor
+    core_outer: QColor
+    core_hot: QColor
+    tentacle: QColor
+    tentacle_hot: QColor
+    particle: QColor
+    arc: QColor
+    title: QColor
+    subtitle: QColor
 
 
 def _qc(r: int, g: int, b: int, a: int = 255) -> QColor:
@@ -74,7 +74,6 @@ def _hc(hex_str: str, a: int = 255) -> QColor:
     return c
 
 
-# Definição de todos os temas
 
 TEMAS_CORE: dict[str, dict] = {
     "LARANJA_MESA": {
@@ -186,7 +185,6 @@ def lista_temas() -> list[str]:
     return list(TEMAS_CORE.keys())
 
 
-# Estilos QSS dos botões
 
 
 def _qss_btn(bg: str, border: str, hover_bg: str) -> str:
@@ -224,7 +222,6 @@ def qss_botao_muted(raw: dict) -> str:
     return _qss_btn(f"{d}18", d, f"{d}33")
 
 
-#   VOZ
 
 
 class VoiceState(QObject):
@@ -273,7 +270,6 @@ def falar_off():
     get_voice_state().set_speaking(False)
 
 
-#   ÍCONES SVG
 
 
 _icon_cache: dict[tuple[str, int], QIcon] = {}
@@ -347,7 +343,7 @@ def svg_power(hex_c: str) -> bytes:
 
 
 def svg_orb_tray(hex_c: str) -> bytes:
-    """Ícone circular para a bandeja do sistema."""
+    
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">'
         f"<defs>"
@@ -365,7 +361,6 @@ def svg_orb_tray(hex_c: str) -> bytes:
     ).encode()
 
 
-#   WIDGET PRINCIPAL
 
 
 class JarvisUI(QWidget):
@@ -374,14 +369,12 @@ class JarvisUI(QWidget):
         super().__init__()
         self.painel_core = painel
 
-        # transparência
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self._fixado_no_topo = False
         self._aplicar_flags_janela()
 
         self.setFixedSize(1200, 900)
 
-        # estado interno
         self._voice = voice if voice is not None else get_voice_state()
         self.tempo_vivido = 0.0
         self.intensidade_interna = 0.0
@@ -395,12 +388,10 @@ class JarvisUI(QWidget):
         self._cache_w = 0
         self._cache_h = 0
 
-        # dados do HUD (atualizados dinamicamente)
         self._hud_neural = 97.4
         self._hud_energy = 3.21
         self._hud_tick = 0
 
-        # persistência
         self._settings = QSettings("Mark_Jarvis", "HUD")
         st = self._settings
 
@@ -433,9 +424,8 @@ class JarvisUI(QWidget):
 
         self.timer_repintar = QTimer(self)
         self.timer_repintar.timeout.connect(self.atualizar_animacao)
-        self.timer_repintar.start(33)  # ~30 fps
+        self.timer_repintar.start(33)
 
-    # gerenciamento de janela
 
     def _aplicar_flags_janela(self):
         self.setWindowFlags(
@@ -465,7 +455,6 @@ class JarvisUI(QWidget):
             pass
         return False
 
-    # tema e opacidade
 
     def aplicar_tema(self, nome: str):
         if nome not in TEMAS_CORE:
@@ -511,7 +500,6 @@ class JarvisUI(QWidget):
         self.show()
         self.move(pos)
 
-    # menus
 
     def _qss_menu(self) -> str:
         a = self._raw.get("accent", "#ff9500")
@@ -530,7 +518,6 @@ class JarvisUI(QWidget):
         m = QMenu(self)
         m.setStyleSheet(self._qss_menu())
 
-        # controles de voz e scan
         falar_txt = "🎙  Parar fala" if self._voice.speaking else "🎙  Iniciar fala"
         m.addAction(falar_txt).triggered.connect(self.alternar_falar)
 
@@ -539,7 +526,6 @@ class JarvisUI(QWidget):
 
         m.addSeparator()
 
-        # sub-menu temas
         sm = m.addMenu("🎨  Tema")
         sm.setStyleSheet(self._qss_menu())
         for nome, raw in TEMAS_CORE.items():
@@ -568,7 +554,6 @@ class JarvisUI(QWidget):
 
         m.exec(self.barra_hud.mapToGlobal(pos))
 
-    # bandeja do sistema
 
     def _montar_bandeja(self):
         self._tray_icon = QSystemTrayIcon(self)
@@ -635,7 +620,6 @@ class JarvisUI(QWidget):
         if reason == QSystemTrayIcon.ActivationReason.Trigger:
             self._toggle_visibilidade()
 
-    # botões HUD
 
     def _montar_barra_botoes(self):
         self.barra_hud = QFrame(self)
@@ -718,7 +702,6 @@ class JarvisUI(QWidget):
     def montar_barra_botoes(self):
         self._montar_barra_botoes()
 
-    # ações dos botões
 
     def alternar_painel(self):
         if self.painel_core:
@@ -761,7 +744,6 @@ class JarvisUI(QWidget):
         except RuntimeError:
             self.timer_repintar.stop()
 
-    # eventos Qt
 
     def closeEvent(self, event):
         self.timer_repintar.stop()
@@ -789,10 +771,9 @@ class JarvisUI(QWidget):
         self.posicao_arrasto = None
 
     def contextMenuEvent(self, event):
-        """Clique direito em qualquer ponto da janela abre o menu."""
+        
         self.menu_tema(self.barra_hud.mapFromGlobal(event.globalPos()))
 
-    # PINTURA
 
     def paintEvent(self, event):
         k = self._kit
@@ -809,7 +790,6 @@ class JarvisUI(QWidget):
             r_anel2 = r_sol * 2.60
             r_anel3 = r_sol * 3.40
 
-            # fundo radial
             bg = QRadialGradient(cx, cy, r_anel3 * 1.1)
             bg.setColorAt(0, k.bg_tint)
             bg.setColorAt(1, QColor(0, 0, 0, 0))
@@ -824,7 +804,6 @@ class JarvisUI(QWidget):
             self.desenhar_linhas_radar(painter, cx, cy, r_anel3, k)
             self.desenhar_aneis(painter, cx, cy, r_anel1, r_anel2, r_anel3, t, iv, k)
 
-            # brilho externo
             glow_outer = QRadialGradient(cx, cy, r_sol * 4.0)
             glow_outer.setColorAt(0, k.glow_hot)
             glow_outer.setColorAt(0.4, k.glow_mid)
@@ -855,7 +834,6 @@ class JarvisUI(QWidget):
         finally:
             painter.end()
 
-    # sub-rotinas de desenho
 
     def _renderizar_bg_cache(self, W, H, k):
         bg = QPixmap(W, H)
@@ -1108,23 +1086,20 @@ class JarvisUI(QWidget):
         p.drawText(int(cx - larg2 // 2), int(y + 22), sub)
 
 
-#   ENTRY POINT
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    app.setQuitOnLastWindowClosed(False)  # mantém vivo mesmo sem janelas visíveis
+    app.setQuitOnLastWindowClosed(False)
 
     janela = JarvisUI()
     janela.show()
 
-    # Ctrl+C no terminal funciona
     signal.signal(signal.SIGINT, lambda *_: app.quit())
     _unix_timer = QTimer()
     _unix_timer.start(200)
     _unix_timer.timeout.connect(lambda: None)
 
-    # demo: alterna modo fala a cada 2.8 s
     def _demo_audio():
         v = get_voice_state()
         if v.speaking:

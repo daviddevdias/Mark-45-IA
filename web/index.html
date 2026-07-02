@@ -469,7 +469,7 @@ if (typeof module === 'object') {
       <li class="nav-item" data-s="weather" onclick="goTo('weather')">CLIMA</li>
       <li class="nav-item" data-s="calendar" onclick="goTo('calendar')">CALEND&#193;RIO</li>
       <li class="nav-item" data-s="email" onclick="goTo('email')">EMAIL</li>
-      <!-- STATUS removed -->
+      
       <li class="nav-item" data-s="config" onclick="goTo('config')">CONFIG</li>
       <li class="nav-item" data-s="library" onclick="goTo('library')">BIBLIOTECA</li>
     </ul>
@@ -485,7 +485,7 @@ if (typeof module === 'object') {
       <div id="topbar-metrics" class="offline">SISTEMA OFFLINE</div>
     </header>
 
-    <!-- HOME / DASHBOARD -->
+    
     <section class="page active" id="page-home">
       <div class="home-wrap">
         <div class="home-metrics-bar">
@@ -533,7 +533,7 @@ if (typeof module === 'object') {
       </div>
     </section>
 
-    <!-- CHAT -->
+    
     <section class="page" id="page-chat">
       <div id="chat-msgs">
         <div class="msg ai"><div class="avatar">J</div><div class="bubble">Sistemas online. Aguardando suas diretrizes, Senhor.</div></div>
@@ -544,7 +544,7 @@ if (typeof module === 'object') {
       </div>
     </section>
 
-    <!-- ALARMES -->
+    
     <section class="page" id="page-alarms">
       <div class="page-inner">
         <div class="section-hdr"><h2>&#x23F0; ALARMES</h2></div>
@@ -573,7 +573,7 @@ if (typeof module === 'object') {
       </div>
     </section>
 
-    <!-- CLIMA -->
+    
     <section class="page" id="page-weather">
       <div class="page-inner">
         <div class="section-hdr"><h2>&#x2606; CLIMA</h2></div>
@@ -587,7 +587,7 @@ if (typeof module === 'object') {
       </div>
     </section>
 
-    <!-- CALEND&#193;RIO -->
+    
     <section class="page" id="page-calendar">
       <div class="page-inner">
         <div class="section-hdr"><h2>&#x1F4C5; CALEND&#193;RIO</h2></div>
@@ -607,7 +607,7 @@ if (typeof module === 'object') {
       </div>
     </section>
 
-    <!-- EMAIL -->
+    
     <section class="page" id="page-email">
       <div class="page-inner">
         <div class="section-hdr"><h2>&#x2709; EMAIL</h2></div>
@@ -627,7 +627,7 @@ if (typeof module === 'object') {
       </div>
     </section>
 
-    <!-- CONFIG -->
+    
     <section class="page" id="page-config">
       <div class="page-inner">
         <div class="section-hdr"><h2>&#x2699; CONFIGURA&#199;&#213;ES</h2></div>
@@ -646,6 +646,8 @@ if (typeof module === 'object') {
             <div class="cfg-hdr">VOZ &amp; MIC</div>
             <div class="cfg-field"><label>VOZ TTS</label><div class="field-row-inline"><input class="field" id="cfg-voz" placeholder="pt-BR-AntonioNeural" /><button class="btn-sm" onclick="salvarConfig('voz','cfg-voz',this)">SALVAR</button></div></div>
             <div class="cfg-field"><label>MODELO WHISPER</label><div class="field-row-inline"><select class="field" id="cfg-whisper"><option>tiny</option><option>base</option><option selected>small</option><option>medium</option><option>large</option></select><button class="btn-sm" onclick="salvarConfig('whisper_model','cfg-whisper',this)">SALVAR</button></div></div>
+            <div class="cfg-field"><label>DISPOSITIVO WHISPER</label><div class="field-row-inline"><select class="field" id="cfg-whisper-device"><option selected>cpu</option><option>cuda</option></select><button class="btn-sm" onclick="salvarConfig('whisper_device','cfg-whisper-device',this)">SALVAR</button></div></div>
+            <div class="cfg-field"><label>PRECIS&#195;O WHISPER</label><div class="field-row-inline"><select class="field" id="cfg-whisper-compute"><option selected>int8</option><option>int8_float16</option><option>float16</option><option>float32</option></select><button class="btn-sm" onclick="salvarConfig('whisper_compute','cfg-whisper-compute',this)">SALVAR</button></div></div>
           </div>
           <div class="card cfg-card"><div class="cfg-hdr">OPENWEATHER</div><div class="cfg-field"><label>API KEY</label><div class="field-row-inline"><input class="field" id="cfg-owm" type="password" placeholder="..." /><button class="btn-sm" onclick="salvarConfig('openweather_api_key','cfg-owm',this)">SALVAR</button></div></div></div>
           <div class="card cfg-card">
@@ -690,7 +692,7 @@ if (typeof module === 'object') {
       </div>
     </section>
 
-    <!-- BIBLIOTECA -->
+    
     <section class="page" id="page-library">
       <div class="page-inner">
         <div class="section-hdr"><h2>BIBLIOTECA DE COMANDOS</h2></div>

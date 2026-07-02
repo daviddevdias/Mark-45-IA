@@ -55,6 +55,8 @@ function inicializarUI(jv) {
         val("mail-user", c.email_user || "");
         val("mail-pass", c.email_pass || "");
         setWhisper(c.whisper_model);
+        setSelect("cfg-whisper-device", c.whisper_device);
+        setSelect("cfg-whisper-compute", c.whisper_compute);
         atualizarStatusIA(c);
       } catch (e) {}
     });
@@ -70,10 +72,15 @@ function setWhisper(m) {
   if (!s || !m) return;
   [...s.options].forEach(o => { o.selected = o.value === m; });
 }
+function setSelect(id, v) {
+  const s = $(id);
+  if (!s || !v) return;
+  [...s.options].forEach(o => { o.selected = o.value === v; });
+}
 
 window.receberDoJarvis = function (raw) { receberDoBackend(raw); };
 
-// ========== LOG ==========
+
 function adicionarLog(tipo, msg) {
   const agora = new Date();
   const h = String(agora.getHours()).padStart(2,"0");
@@ -95,7 +102,7 @@ function renderLog() {
   wrap.scrollTop = wrap.scrollHeight;
 }
 
-// ========== BACKEND RECEIVER ==========
+
 function receberDoBackend(raw) {
   let d;
   try { d = typeof raw === "string" ? JSON.parse(raw) : raw; } catch (e) { return; }
@@ -190,7 +197,7 @@ function atualizarHomeMetrics(d) {
   }
 }
 
-// ========== SENTINELA ==========
+
 function atualizarSentinela(s) {
   if (s.dispositivos_rede) {
     setText("sec-dev-count", s.dispositivos_rede.length);
@@ -279,7 +286,7 @@ function atualizarStatusIA(s) {
   else atualizarLMStatus(false);
 }
 
-// ========== NAVEGAÇÃO ==========
+
 function goTo(name) {
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
@@ -300,7 +307,7 @@ window.goTo = goTo;
 
 window.ocultarPainel = function () { jarvis?.ocultar_painel?.(); };
 
-// ========== CHAT ==========
+
 function enviarChat() {
   const inp = $("chat-in"), txt = inp.value.trim();
   if (!txt) return;
@@ -329,7 +336,7 @@ function adicionarMsg(role, texto) {
   msgs.scrollTop = msgs.scrollHeight;
 }
 
-// ========== ALARMES ==========
+
 function carregarAlarmes() {
   if (!jarvis?.obter_alarmes) return;
   jarvis.obter_alarmes((raw) => {
@@ -399,7 +406,7 @@ function limparConcluidos() {
 }
 window.limparConcluidos = limparConcluidos;
 
-// ========== CLIMA ==========
+
 function buscarClima() {
   const cidade = $("wx-city")?.value?.trim() || "", res = $("wx-result");
   if (!res) return;
@@ -429,7 +436,7 @@ function renderClima(raw, cidade) {
   } catch (e) { res.innerHTML = `<div class="wx-error">Erro: ${esc(e.message)}</div>`; }
 }
 
-// ========== CALENDÁRIO ==========
+
 function definirDataHoje() {
   const hoje = new Date().toISOString().slice(0,10);
   if ($("cal-data") && !$("cal-data").value) $("cal-data").value = hoje;
@@ -488,7 +495,7 @@ function removerEvento(titulo, data) {
 }
 window.removerEvento = removerEvento;
 
-// ========== EMAIL ==========
+
 function salvarConfigEmail() {
   const host = $("mail-host")?.value?.trim();
   const user = $("mail-user")?.value?.trim();
@@ -546,7 +553,7 @@ function renderEmails() {
   ).join("");
 }
 
-// ========== CONFIG ==========
+
 function salvarConfig(chave, inputId, btn) {
   const v = $(inputId)?.value?.trim();
   if (v === undefined || v === "") { toast("⚠ O campo não pode ficar vazio."); return; }
@@ -574,7 +581,7 @@ function trocarIA(modo) {
 }
 window.trocarIA = trocarIA;
 
-// ========== BIBLIOTECA ==========
+
 const BIBLIOTECA = [
   {cmd:"dormir",label:"DORMIR",cat:"Sistema"},
   {cmd:"boa noite",label:"BOA NOITE",cat:"Sistema"},
